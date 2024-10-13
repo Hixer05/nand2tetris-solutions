@@ -16,27 +16,16 @@ CHIP DMux4Way {
     OUT a, b, c, d;
 
     PARTS:
-    // Put your code here:
-    // A selector
-    Or(a=sel[0],b=sel[1], out=as);     // 0 se sel=00
-    Not(in=as,out=nas);
 
-    // B selector
-    Nand(a=sel[0],b=sel[1],out=nd); // non d (11)
-    Nand(a=sel[1], b=nd, out=bs);    // 0 quando sel[1] ma non d
-    Not(in=bs,out=nbs);
+    // obs: DMux's sel is sel[1]
+    // obs: a or b may have value only if !sel[0]
+    // obs: c or d may have valye only if sel[0]
+    // to filter in value we And(in, not or not not sel[0])
 
-    // C selector
-    Nand(a=sel[0],b=nd,out=cs); // 0 quando sel[0], ma non d
-    Not(in=cs,out=ncs);
-    // D selector
-    // vedi B: nd
-    Not(in=nd,out=nds);
+    Not(in=sel[0], out=nsel0);
+    And(a=in, b=nsel0, out=inf0);        // filtered in for ab
+    And(a=in, b=sel[0], out=inf1);     // filtered in for cd
 
-    // Main
-    // nas=0 se as=1, quindi out=0 se sel=as=1 (Mux prende in se sel=0)
-    Mux(a=in, b=nas, sel=as, out=a);
-    Mux(a=in, b=nbs, sel=bs, out=b);
-    Mux(a=in, b=ncs, sel=cs, out=c);
-    Mux(a=in, b=nds, sel=nd, out=d);
+    DMux(in=inf0, sel=sel[1], a=a,b=b);
+    DMux(in=inf1, sel=sel[1], a=c,b=d);
 }
