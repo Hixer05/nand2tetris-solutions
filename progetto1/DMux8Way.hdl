@@ -17,4 +17,14 @@ CHIP DMux8Way {
 
     PARTS:
     // Put your code here:
+    // obs: 0xx -> a/b/c/d; only if !sel[2]
+    // obs: 1xx -> e/f/g/h; only if sel[2]
+    // we filter with And(in, not or not not sel[2])
+    // sel is sel[0..1]
+    Not(in=sel[2], out=nsel2);
+    And(a=in, b=nsel2, out=inf1);
+    And(a=in, b=sel[2],out=inf0);
+
+    DMux4Way(in=inf1,sel=sel[0..1],a=a,b=b,c=c,d=d);
+    DMux4Way(in=inf0,sel=sel[0..1],a=e,b=f,c=g,d=h);
 }

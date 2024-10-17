@@ -17,15 +17,15 @@ CHIP DMux4Way {
 
     PARTS:
 
-    // obs: DMux's sel is sel[1]
-    // obs: a or b may have value only if !sel[0]
-    // obs: c or d may have valye only if sel[0]
-    // to filter in value we And(in, not or not not sel[0])
+    // obs: DMux's sel is sel[0]
+    // obs: a or b may have value only if !sel[1]
+    // obs: c or d may have valye only if sel[1]
+    // to filter in value we And(in, not or not not sel[1])
 
-    Not(in=sel[0], out=nsel0);
-    And(a=in, b=nsel0, out=inf0);        // filtered in for ab
-    And(a=in, b=sel[0], out=inf1);     // filtered in for cd
+    Not(in=sel[1], out=nsel1);
+    And(a=in, b=nsel1, out=inf1);        // filtered in for ab
+    And(a=in, b=sel[1], out=inf0);     // filtered in for cd
 
-    DMux(in=inf0, sel=sel[1], a=a,b=b);
-    DMux(in=inf1, sel=sel[1], a=c,b=d);
+    DMux(in=inf1, sel=sel[0], a=a,b=b);
+    DMux(in=inf0, sel=sel[0], a=c,b=d);
 }
