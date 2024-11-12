@@ -16,12 +16,19 @@ CHIP RAM8 {
 
     PARTS:
     // Put your code here:
+    // select addr
+    DMux8Way(in=load, sel=address, a=as,b=bs,c=cs,d=ds,e=es,f=fs,g=gs,h=hs);
 
+    // this gets in the way with the register later, but for a ROM it woul work :)
+    // Mux8Way16(a=a,b=b,c=c,d=d,e=e,f=f,g=g,h=h, sel=address, out=out);
 
-    // input if load based on addr
-//wrong    DMux8Way(in=in, sel=addr, a=a,b=b,c=c,d=d,e=e,f=f,g=g,h=h)
-
-
-    // Out the addr
-    Mux8Way16(a=a,b=b,c=c,d=d,e=e,f=f,g=g,h=h, sel=address, out);
+    Register(in=in, load=as, out=outa);
+    Register(in=in, load=bs, out=outb);
+    Register(in=in, load=cs, out=outc);
+    Register(in=in, load=ds, out=outd);
+    Register(in=in, load=es, out=oute);
+    Register(in=in, load=fs, out=outf);
+    Register(in=in, load=gs, out=outg);
+    Register(in=in, load=hs, out=outh);
+    Mux8Way16(a=outa, b=outb, c=outc, d=outd, e=oute,f=outf,g=outg,h=outh, sel=address,out=out);
 }
