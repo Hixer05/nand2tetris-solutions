@@ -1,0 +1,38 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/03/a/PC.hdl
+
+/**
+ * A 16-bit counter with load and reset control bits.
+ * if      (reset[t] == 1) out[t+1] = 0
+ * else if (load[t] == 1)  out[t+1] = in[t]
+ * else if (inc[t] == 1)   out[t+1] = out[t] + 1  (integer addition)
+ * else                    out[t+1] = out[t]
+ */
+
+CHIP PC {
+    IN in[16],load,inc,reset;
+    OUT out[16];
+
+    PARTS:
+    // Put your code here:
+
+    // if / else if here are reversed, so that the the firt(here last) condition prevails
+    // outt -> out(t)
+    // outf -> out(t+1)
+
+    // if inc, then outt+1
+    Inc16(in=outt, out=outti);
+    Mux16(a=outt, b=outti, sel=inc, out=outf1);
+
+    // if load, then in; else outt1
+    Mux16(a=outf1, b=in, sel=load, out=outf2);
+
+    // if reset, then 0; else outt2
+    Mux16(a=outf2, b[0..15]=false, sel=reset, out=outf);
+
+    // Remember out(t+1) next clock, this way we implement the final "else" (no change)
+    // Note if all Mux16 cond.s above "fail", then out(t+1)=out(t)
+    DFF16(in=outf, out=out,out=outt); // outt here is now new outt, the out(t+1), for the next clock
+}
