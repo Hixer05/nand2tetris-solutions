@@ -57,13 +57,32 @@ int main(){
 
     // file open and parse
     FILE* fasm = fopen(filepath, "r");
-    char* line = NULL;
+    char line[80];
     size_t len;
 
     FILE* fhack = fopen(output_path, "w");
     char* linew = NULL;
     size_t lenw;
 
+    // prima passata
+    size_t counter = 0;
+    while(fgets(line , 80 , fasm) != NULL){
+        if(line[0] == '('){ // etichetta
+            char* str;
+            int i=1;
+            for(;; i++){
+                str[i] = line[i];
+            }
+            str[i]='\0';
+        }
+    }
+
+    fclose(fasm);
+    free(line);
+    fasm = fopen(filepath, "r");
+
+
+    // traduzione
     while((getline(&line, &len, fasm))!= -1){
         if(line[0]=='@'){
             // TODO: non ho implementato le etichette! Manca la prima passata!!!:w
@@ -73,7 +92,7 @@ int main(){
             int dec = ascii2int(line, 1, 15);
             int2bin16(dec, buf);
             fputs(buf, fhack);
-        }else if(line[0]==";")
+        }else if(line[0]==';')
     }
 
     // Close
