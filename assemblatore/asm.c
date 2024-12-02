@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include<stdio.h>
 #include<malloc.h>
+#include<string.h>
 #define NIL -1
 #define SYNTHAX_ERR -2
 /* #define debug */
@@ -57,6 +58,7 @@ int main(){
     loadVariables(filepath, table_data, &table_keys);
     int err = writeHack(hackpath, filepath,table_data, &table_keys);
     if(err==SYNTHAX_ERR){
+        printf("synthax erroel");
        return 1; 
     }
 
@@ -70,6 +72,7 @@ int main(){
     }
     printf("\n");
     #endif
+
    return 0;
 }
 
@@ -93,6 +96,49 @@ int writeHack(char* hackpath, char* filepath, size_t* table_data, HashMap* table
     alloc_pos("0", &allowedSynthax);
     alloc_pos("1", &allowedSynthax);
     alloc_pos("-", &allowedSynthax);
+    alloc_pos("!", &allowedSynthax);
+
+    HashMap compComb; //compute combinations
+    initHashMap(&compComb, 47);
+    char* comp[47];
+    comp[alloc_pos("0", &compComb)] = "0101010";
+    comp[alloc_pos("1", &compComb)] = "1111110";
+    comp[alloc_pos("-1", &compComb)] = "0101110";
+    comp[alloc_pos("D", &compComb)] = "0011000";
+    comp[alloc_pos("A", &compComb)] = "0000110";
+    comp[alloc_pos("!D", &compComb)] = "1011000";
+    comp[alloc_pos("!A", &compComb)] = "1000110";
+    comp[alloc_pos("-D", &compComb)] = "1111000";
+    comp[alloc_pos("-A", &compComb)] = "1100110";
+    comp[alloc_pos("D+1", &compComb)] = "1111100";
+    comp[alloc_pos("A+1", &compComb)] = "1110110";
+    comp[alloc_pos("D-1", &compComb)] = "0111000";
+    comp[alloc_pos("A-1", &compComb)] = "0100110";
+    comp[alloc_pos("D+A", &compComb)] = "0100000";
+    comp[alloc_pos("D-A", &compComb)] = "1100100";
+    comp[alloc_pos("A-D", &compComb)] = "0001110";
+    comp[alloc_pos("D&A", &compComb)] = "0000000";
+    comp[alloc_pos("D|A", &compComb)] = "1010100";
+    comp[alloc_pos("M", &compComb)] = "0000111";
+    comp[alloc_pos("!M", &compComb)] = "100011";
+    comp[alloc_pos("-M", &compComb)] = "1100111";
+    comp[alloc_pos("M+1", &compComb)] = "1110111";
+    comp[alloc_pos("M-1", &compComb)] = "0100111";
+    comp[alloc_pos("D+M", &compComb)] = "0100001";
+    comp[alloc_pos("D-M", &compComb)] = "1100101";
+    comp[alloc_pos("D&M", &compComb)] = "0000001";
+    comp[alloc_pos("D|M", &compComb)] = "1010101";
+
+    HashMap jumpHash;
+    initHashMap(&jumpHash, 14);
+    char* jump_data[14];
+    jump_data[alloc_pos("JGT", &jumpHash)] = "100";
+    jump_data[alloc_pos("JEQ", &jumpHash)] = "010";
+    jump_data[alloc_pos("JGE", &jumpHash)] = "110";
+    jump_data[alloc_pos("JLT", &jumpHash)] = "001";
+    jump_data[alloc_pos("JNE", &jumpHash)] = "101";
+    jump_data[alloc_pos("JLE", &jumpHash)] = "011";
+    jump_data[alloc_pos("JMP", &jumpHash)] = "111";
 
     FILE* read = fopen(filepath, "r");
     FILE* write = fopen(hackpath, "w");
@@ -126,16 +172,25 @@ int writeHack(char* hackpath, char* filepath, size_t* table_data, HashMap* table
 
         char output[16];
         if(value[0]=='@'){ // a instr
-            output[15] = '0';
-            char* bin;
-            int2bin16(ascii2int(liner, startp,end),  bin);
-            for(int i = 1; i < 15; i++){
-                output[i] = bin[i];
+            if(value[1]>64){ //literal
+                char addr[16];
+                char* tag;
+                strcpy(tag, value+1);
+                int2bin16(table_data[search(tag, table_keys)],  addr);
+                strcpy(output, addr);
+            }else{
+                output[15] = '0';
+                char* bin;
+                int2bin16(ascii2int(liner, startp,end),  bin);
+                for(int i = 1; i < 15; i++){
+                    output[i] = bin[i];
+                }
             }
         }else{ // c instr
-            output[15] = '1';
-            output[14] = '1';
-            output[13] = '1';
+            /* output[15] = '1'; */
+            /* output[14] = '1'; */
+            /* output[13] = '1'; */
+            strcpy(output+13, "111");
 
             // possible format
             // 12345678; 8-4-1
@@ -144,16 +199,11 @@ int writeHack(char* hackpath, char* filepath, size_t* table_data, HashMap* table
             // 0;JMP
             int destp=0;
             int jmpp=-1;
-            char comp = '\0';
-            int compp = 0;
             for(int i = 0;value[i]!='\0'; i++){
                 if(value[i]=='=')
                     destp = i;
                 if(value[i]==';')
                     jmpp = i;
-                /* if(value[i]=='+'||value[i]=='-'||value[i]=='&'){ */
-                    /* compp = i; */
-                /* } */
             }
 
             if(destp!=0){
@@ -169,29 +219,39 @@ int writeHack(char* hackpath, char* filepath, size_t* table_data, HashMap* table
                     }
                 }
             }else{
-                output[5] = '0';
-                output[4] = '0';
-                output[3] = '0';
+                /* output[5] = '0'; */
+                /* output[4] = '0'; */
+                /* output[3] = '0'; */
+                strcpy(output+3, "000");
             }
 
-            if(jmpp==-1){ // no semicolon
+            if(jmpp==-1) // no semicolon
                return SYNTHAX_ERR;
+            // between = and ;
+            int j=0;
+            char* compl;
+            for(int i=destp; i<jmpp; i++){ // compute
+                j++;
+                compl[j]=value[i];
+            }
+            compl[j]='\0';
+            strcpy(output+6, comp[search(compl, &compComb)]);
+            // if jump
+            if(value[jmpp+1]=='J'){
+                char * tmp;
+                for(int i=0;i<3;i++) // copy it
+                    tmp[i]=value[jmpp+1+i];
+                strcpy(output+0, jump_data[search(tmp, &jumpHash)]);
             }else{
-                // between = and ;
-                for(int i=destp; i<jmpp; i++){ // compute
-                    switch(jmpp-destp-1){
-                       case 3: //arietà n=2 op
-                           ...
-                           break;
-                        case 2:
-                            break;
-
-                    }
-                }
+                strcpy(output+0, "000");
             }
         }
+        fputs(output, write);
+        fputc('\n', write);
     }
-
+    fclose(read);
+    fclose(write);
+    return 0;
 }
 
 void loadVariables(char* filepath , size_t* table_data, HashMap* table_keys){
@@ -293,7 +353,6 @@ void initHashMap(HashMap* map, size_t size){
     map->keys = (int*) malloc(sizeof(int)*(map->size));
     for (int i=0; i<map->size; i++){
         map->keys[i] = (int) NIL;
-        printf("%d",map->keys[i]);
     }
 }
 
