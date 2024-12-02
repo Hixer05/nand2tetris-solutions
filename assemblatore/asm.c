@@ -2,21 +2,24 @@
 #include<stdio.h>
 #include<malloc.h>
 #define NIL -1
-
-#define debug
+#define SYNTHAX_ERR -2
+/* #define debug */
 
 typedef struct {
-    size_t* keys;
+    int* keys;
     size_t size;
 }HashMap;
-size_t search(char* key, HashMap map);
+size_t search(char* key, HashMap* map);
 size_t alloc_pos(char* key, HashMap* map);
-size_t h1(char* key);
-size_t h2(size_t key, size_t i);
+int h1(char* key);
+int h2(size_t key, size_t i);
 void initHashMap(HashMap* map, size_t size);
-size_t ascii2int(char* data, size_t start, size_t end);
-size_t pow(size_t a, size_t b);
+int ascii2int(char* data, size_t start, size_t end);
+int pow(size_t a, size_t b);
 void int2bin16(int num, char* binary);
+void loadTags(char* filepath , size_t* table_data, HashMap* table_keys);
+void loadVariables(char* filepath , size_t* table_data, HashMap* table_keys);
+int writeHack(char* hackpath, char* filepath, size_t* table_data, HashMap* table_keys);
 
 int main(){
     // Usage: assembler file.hack -o a.out
@@ -47,72 +50,221 @@ int main(){
     table_data[alloc_pos("KBD", &table_keys)] = 24576;
 
     //TODO: Flag get
-    char* filepath = "test.asm";
-    char* output_path = "a.out";
-#ifdef debug
-    for(int i = 0; i < 40; i++ ){
-        printf("%u\n", (unsigned int) table_data[i]);
+    char* filepath = "Rect.asm";
+    char* hackpath = "out.hack";
+
+    loadTags(filepath, table_data, &table_keys);
+    loadVariables(filepath, table_data, &table_keys);
+    int err = writeHack(hackpath, filepath,table_data, &table_keys);
+    if(err==SYNTHAX_ERR){
+       return 1; 
     }
-#endif
 
-    // file open and parse
-    FILE* fasm = fopen(filepath, "r");
-    char line[80];
-    size_t len;
+    
 
-    FILE* fhack = fopen(output_path, "w");
-    char* linew = NULL;
-    size_t lenw;
+    #ifdef debug
+    for(int i=0; i<table_keys.size; i++){
+        printf("(%d:%lu)\t\t", i, table_data[i] );
+        if(i%9==0&&i!=0)
+            printf("\n");
+    }
+    printf("\n");
+    #endif
+   return 0;
+}
 
-    // prima passata
-    size_t counter = 0;
-    while(fgets(line , 80 , fasm) != NULL){
-        if(line[0] == '('){ // etichetta
-            char* str;
-            int i=1;
-            for(;; i++){
-                str[i] = line[i];
+int firstNonSpace(char* str){
+    int startp=0;
+    int run = 1;
+    while(str[startp]!=' '){
+        startp++;
+    }
+    return startp;
+}
+
+
+int writeHack(char* hackpath, char* filepath, size_t* table_data, HashMap* table_keys){
+    HashMap allowedSynthax;
+    initHashMap(&allowedSynthax, 12);
+    alloc_pos("@", &allowedSynthax);
+    alloc_pos("M", &allowedSynthax);
+    alloc_pos("A", &allowedSynthax);
+    alloc_pos("D", &allowedSynthax);
+    alloc_pos("0", &allowedSynthax);
+    alloc_pos("1", &allowedSynthax);
+    alloc_pos("-", &allowedSynthax);
+
+    FILE* read = fopen(filepath, "r");
+    FILE* write = fopen(hackpath, "w");
+    if(read==NULL || write==NULL)
+        printf("Error reading file %s", filepath);
+
+    char liner[80];
+    size_t lenr;
+    char linew[80];
+
+    while(fgets(liner, lenr, read)!=NULL){
+        int startp = firstNonSpace(liner);
+
+        // not interesting
+        if(liner[startp]=='('||liner[startp]=='/')
+                continue;
+
+        // is valid synthax
+        char tmp [2];
+        tmp[0] = liner[startp];
+        tmp[1] = '\0';
+        if(search(tmp, &allowedSynthax)==NIL)
+            return SYNTHAX_ERR;
+
+        // get end of line
+        int end=startp+1;
+        char value[80];
+        for(;liner[end]!='\r' && liner[end]!='\n';end++)
+            value[end-startp-1] = liner[end];
+        value[end]='\0';
+
+        char output[16];
+        if(value[0]=='@'){ // a instr
+            output[15] = '0';
+            char* bin;
+            int2bin16(ascii2int(liner, startp,end),  bin);
+            for(int i = 1; i < 15; i++){
+                output[i] = bin[i];
             }
-            str[i]='\0';
+        }else{ // c instr
+            output[15] = '1';
+            output[14] = '1';
+            output[13] = '1';
+
+            // possible format
+            // 12345678; 8-4-1
+            // ADM=X+Y;JMP
+            // X+Y;JMP
+            // 0;JMP
+            int destp=0;
+            int jmpp=-1;
+            char comp = '\0';
+            int compp = 0;
+            for(int i = 0;value[i]!='\0'; i++){
+                if(value[i]=='=')
+                    destp = i;
+                if(value[i]==';')
+                    jmpp = i;
+                /* if(value[i]=='+'||value[i]=='-'||value[i]=='&'){ */
+                    /* compp = i; */
+                /* } */
+            }
+
+            if(destp!=0){
+                for(int i = 0; i<destp;i++){
+                    switch(value[i]){
+                        case 'A':
+                            output[5] = '1'; // d1
+                            break;
+                        case 'D':
+                            output[4] = '1'; // d2
+                        case 'M':
+                            output[3] = '1'; // d3
+                    }
+                }
+            }else{
+                output[5] = '0';
+                output[4] = '0';
+                output[3] = '0';
+            }
+
+            if(jmpp==-1){ // no semicolon
+               return SYNTHAX_ERR;
+            }else{
+                // between = and ;
+                for(int i=destp; i<jmpp; i++){ // compute
+                    switch(jmpp-destp-1){
+                       case 3: //arietà n=2 op
+                           ...
+                           break;
+                        case 2:
+                            break;
+
+                    }
+                }
+            }
         }
     }
 
-    fclose(fasm);
-    free(line);
-    fasm = fopen(filepath, "r");
-
-
-    // traduzione
-    while((getline(&line, &len, fasm))!= -1){
-        if(line[0]=='@'){
-            // TODO: non ho implementato le etichette! Manca la prima passata!!!:w
-            //
-            char buf[16];
-            /* buf[0] = 0; non-necessary by A-instr, int2bin16*/
-            int dec = ascii2int(line, 1, 15);
-            int2bin16(dec, buf);
-            fputs(buf, fhack);
-        }else if(line[0]==';')
-    }
-
-    // Close
-    fclose(fasm);
-    free(table_keys.keys);
-    free(line);
-    return 0;
 }
 
-size_t search(char* key, HashMap map){
+void loadVariables(char* filepath , size_t* table_data, HashMap* table_keys){
+    FILE* fasm = fopen(filepath, "r");
+    if(fasm==NULL)
+        printf("Error reading file %s", filepath);
+    char line[80];
+    size_t len;
+    size_t counter = 16;
+    const size_t LEN = 80;
+
+    while(fgets(line , LEN , fasm) != NULL){
+        // search @
+        size_t startp = 0;
+        for(;; startp++)
+            if(line[startp]=='@'||line[startp]=='\0')
+                break;
+
+        if(line[startp] == '@' && (line[startp+1]>=65)){ // @(etichetta | var | address) && letter (= !addr )
+            char str[LEN];
+            int i=startp+1;
+            int c = 0;
+
+            for(;line[i]!='\0'&&line[i]!='\r'&&line[i]!='\n'; i++) // copy line
+                str[i-startp-1] = line[i];
+            str[i-startp-1]='\0';
+
+            if(search(str, table_keys)==NIL){ //not found -> it's a new var! Not a tag, or an existing var
+                table_data[alloc_pos(str, table_keys)] = counter; // add to hash table
+                counter++;
+            }
+        }else // not @
+            continue;
+    }
+    fclose(fasm);
+}
+
+
+void loadTags(char* filepath , size_t* table_data, HashMap* table_keys){
+    FILE* fasm = fopen(filepath, "r");
+
+    if(fasm==(FILE* )-1)
+        printf("Error reading file %s", filepath);
+
+    char line[80];
+    size_t len;
+
+    size_t counter = 0;
+    while(fgets(line , 80 , fasm) != NULL){
+        if(line[0] == '('){ // etichetta
+            char str[80];
+            int i=1;
+            for(;line[i]!=')'; i++)
+                str[i-1] = line[i];
+            str[i-1]='\0';
+            table_data[alloc_pos(str, table_keys)] = counter;
+        }else
+            counter++;
+    }
+    fclose(fasm);
+}
+
+size_t search(char* key, HashMap* map){
     size_t hashedKey = h1(key);
-    size_t pos = hashedKey % map.size;
-    for (int i = 0; i<map.size; i++){
-        if(map.keys[pos]==hashedKey){
+    size_t pos = hashedKey % map->size;
+    for (int i = 0; i<map->size; i++){
+        if(map->keys[pos]==hashedKey){
             return pos;
-        }else if (map.keys[pos] == NIL){
+        }else if (map->keys[pos] == NIL){
             return NIL;
         }else{ // occupied, rehash
             hashedKey=h2(hashedKey, i);
-            pos = hashedKey%map.size;
+            pos = hashedKey%map->size;
         }
     }
     return NIL;
@@ -123,6 +275,9 @@ size_t alloc_pos(char* key, HashMap* map){
     size_t pos = hashedKey % map->size;
     for (int i = 0; i<map->size; i++){
        if (map->keys[pos] == NIL){ //avail
+           #ifdef debug
+           printf("Alloc data to %s in position %lu\n", key, (unsigned long) pos);
+           #endif
            map->keys[pos] = hashedKey;
            return pos;
         }else{ // occupied, rehash
@@ -133,28 +288,28 @@ size_t alloc_pos(char* key, HashMap* map){
     return NIL; // should rebalance
 }
 
-
 void initHashMap(HashMap* map, size_t size){
     map->size = size;
-    map->keys = (size_t*) malloc(sizeof(size_t)*(map->size));
+    map->keys = (int*) malloc(sizeof(int)*(map->size));
     for (int i=0; i<map->size; i++){
-        map->keys[i] = NIL;
+        map->keys[i] = (int) NIL;
+        printf("%d",map->keys[i]);
     }
 }
 
-size_t h1(char* key){
+int h1(char* key){
     size_t sum = 0;
     for(int i=0; key[i]!='\0'; i++)
         sum += key[i];
     return sum;
 }
 
-size_t h2(size_t key, size_t i){
+int h2(size_t key, size_t i){
     #define PRIME 43
     return (PRIME -i*(key%PRIME));
 }
 
-size_t ascii2int(char* data, size_t start, size_t end){
+int ascii2int(char* data, size_t start, size_t end){
     size_t order = end-start;
     size_t sum = 0;
     for(int i=start; i<end; i++){
@@ -177,7 +332,7 @@ void int2bin16(int num, char* binary){
     }
 }
 
-size_t pow(size_t a, size_t b){
+int pow(size_t a, size_t b){
     switch(b){
         case 0:
             return 1;
