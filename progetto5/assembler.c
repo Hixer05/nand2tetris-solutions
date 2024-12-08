@@ -11,8 +11,11 @@
 int
 main (int argc, char *argv[])
 {
+  // __ MAIN CONST DEF __
   constexpr size_t KEY_MAX_LEN = 20;
   constexpr size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
+  constexpr size_t MAX_RLINE_LEN = 80;
+
   char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, KEY_MAX_LEN);
   if (!symbol_keys)
     {
@@ -25,34 +28,10 @@ main (int argc, char *argv[])
   for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
     symbol_data[i] = 0;
 
-  // Wont check for missing space in hashtable for the default tags
-  // Because of course there is
-  STORE_SYMBOL ("R0", 0);
-  STORE_SYMBOL ("R1", 1);
-  STORE_SYMBOL ("R2", 2);
-  STORE_SYMBOL ("R3", 3);
-  STORE_SYMBOL ("R4", 4);
-  STORE_SYMBOL ("R5", 5);
-  STORE_SYMBOL ("R6", 6);
-  STORE_SYMBOL ("R7", 7);
-  STORE_SYMBOL ("R8", 8);
-  STORE_SYMBOL ("R9", 9);
-  STORE_SYMBOL ("R10", 10);
-  STORE_SYMBOL ("R11", 11);
-  STORE_SYMBOL ("R12", 12);
-  STORE_SYMBOL ("R13", 13);
-  STORE_SYMBOL ("R14", 14);
-  STORE_SYMBOL ("R15", 15);
-  STORE_SYMBOL ("SCREEN", 16384);
-  STORE_SYMBOL ("KBD", 24576);
-  STORE_SYMBOL ("SP", 0);
-  STORE_SYMBOL ("LCL", 1);
-  STORE_SYMBOL ("ARG", 2);
-  STORE_SYMBOL ("THIS", 3);
-  STORE_SYMBOL ("THAT", 4);
+  INIT_ST();
 
-  char *const asmPath = argc > 1 ? argv[1] : NULL;
-  if (!asmPath)
+    char *const asmPath = argc > 1 ? argv[1] : NULL;
+    if (!asmPath)
     {
       printf ("Missing file\n");
       FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
@@ -69,6 +48,8 @@ main (int argc, char *argv[])
       // TODO: free mem handle
       exit (1);
     }
+
+  // compute hackPath
   {
     register int i = 0;
     for (; asmPath[i] != '.' && asmPath[i] != '\0'; i++)
@@ -78,10 +59,10 @@ main (int argc, char *argv[])
     strcpy (hackPath + i, ".hack");
   }
 
-  const size_t MAX_RLINE_LEN = 80;
 
-  // load tags
+  // __ LOAD TAGS __
   {
+    // ++ LOCAL DEF ++
     FILE *fasm = fopen (asmPath, "r");
     if (!fasm)
       {
@@ -100,11 +81,11 @@ main (int argc, char *argv[])
         switch (rline[0])
           {
           case '(':
-            { // tag
+            { // == TAG FOUND ==
               char key[KEY_MAX_LEN];
-              // copy to key
+              // Copy to key
               register int i = 1;
-              for (; rline[i] != ')'; i++)
+              for (; rline[i] != ')'; i++) // whilst it isn't tag end
                 key[i - 1] = rline[i];
               key[i - 1] = '\0';
 
@@ -116,16 +97,19 @@ main (int argc, char *argv[])
           case '\0':
           case '/':   // comments
             continue; // while loop
-          default:
+          default: // lines which must be counted
             counter++;
             break;
           }
       }
+
+    // ++ LOCAL EXIT OP ++
     fclose (fasm);
   }
 
-  // write and load vars
+  // __ WRITE & LOAD __
   {
+    // ++ LOCAL DEF ++
     FILE *fasm = fopen (asmPath, "r");
     FILE *fhack = fopen (hackPath, "w");
     if (fasm == NULL || fhack == NULL)
@@ -134,46 +118,19 @@ main (int argc, char *argv[])
         // TODO: free mem handle
         exit (1);
       }
-    char rline[MAX_RLINE_LEN]; // longer lines are useless for assembly
-    size_t counter = 16;
 
-    // COMPARE STORE_IN_HASH
+    char rline[MAX_RLINE_LEN]; // longer lines are useless for assembly
+    size_t variableCounter = 16;
+
+    // COMP HASH
     constexpr size_t COMP_SIZE = 47; // 47
     char **const comp_keys = initHashTable (COMP_SIZE, KEY_MAX_LEN);
     if (!comp_keys)
       goto exit;
     char *comp_data[COMP_SIZE];
+    INIT_COMP();
 
-    STORE_COMP ("0", "0101010");
-    STORE_COMP ("1", "0111111");
-    STORE_COMP ("-1", "0111010");
-    STORE_COMP ("D", "0001100");
-    STORE_COMP ("A", "0110000");
-    STORE_COMP ("!D", "0001101");
-    STORE_COMP ("!A", "0110001");
-    STORE_COMP ("-D", "0001111");
-    STORE_COMP ("-A", "1100110");
-    STORE_COMP ("D+1", "0011111");
-    STORE_COMP ("A+1", "0110111");
-    STORE_COMP ("D-1", "0001110");
-    STORE_COMP ("A-1", "0110010");
-    STORE_COMP ("D+A", "0000010");
-    STORE_COMP ("D-A", "0010011");
-    STORE_COMP ("A-D", "0111000");
-    STORE_COMP ("D&A", "0000000");
-    STORE_COMP ("D|A", "0010101");
-    STORE_COMP ("M", "1110000");
-    STORE_COMP ("!M", "1110001");
-    STORE_COMP ("-M", "1110011");
-    STORE_COMP ("M+1", "1110111");
-    STORE_COMP ("M-1", "1110010");
-    STORE_COMP ("D+M", "1000010");
-    STORE_COMP ("D-M", "1010011");
-    STORE_COMP ("M-D", "1000111");
-    STORE_COMP ("D&M", "1000000");
-    STORE_COMP ("D|M", "1010101");
-
-    // JMP STORE_IN_HASH
+    // JMP HASH
     const size_t JMP_SIZE = 14;
     char **const jmp_keys = initHashTable (JMP_SIZE, KEY_MAX_LEN);
     if (!jmp_keys)
@@ -188,78 +145,90 @@ main (int argc, char *argv[])
     STORE_JMP ("JLE", "110");
     STORE_JMP ("JMP", "111");
 
+    // ++ COMPUTE ++
     while (fgets (rline, MAX_RLINE_LEN, fasm))
       {
-        switch (rline[0])
+        switch (rline[0]) // if is_instruction else next line
           {
           case '/':
           case '(':
           case '\r':
           case '\n':
             continue; // useless
-          default:    // not instr
+          default:    // An instruction
             break;
           }
 
-        // calc start point of instr (after tab)
+        // compute start point of instr)
         size_t startp = 0;
         while (rline[startp] == ' ' || rline[startp] == '\t')
           startp++;
 
+        // compute end point
         size_t end = startp + 1;
-        while (
-            !(rline[end] == '\r' || rline[end] == '\n' || rline[end] == ' '))
+        while (!(rline[end] == '\r' ||
+                 rline[end] == '\n' ||
+                 rline[end] == ' '))
           end++;
 
         if (startp == end) // means a line like: `  \r\n` which is empty
-          continue;        // skip
+          continue;
 
-        char bin[16] = { '0' };
-        if (rline[startp] == '@') // a instr
+        char bin[16] = { '0' }; // init binary output
+
+        // NOTE: WRITE BEGINS
+        if (rline[startp] == '@')
           {
-            int addr;
-            if (rline[startp + 1] >= 'A')
-              { // literal
+            // === NOTE: A INSTRUCTION ===
+            int addr = 0; // A address
+            // NOTE: == GET ADDRESS AS INT ==
+            if (rline[startp + 1] >= 'A') // LITERAL AKA TAGS/VARS
+              {
                 char key[KEY_MAX_LEN];
                 CPY (key, rline, startp + 1, end - startp);
                 key[end - startp - 1] = '\0';
 
                 size_t pos = 0;
+                // ALREADY DEFINED?
                 if (!searchHashMap (symbol_keys, key, SYMBOL_TABLE_SIZE,
-                                    &pos)) // trovato
+                                    &pos))
                   addr = symbol_data[pos];
                 else
-                  { // var, return code of searchHashMap is non 0
+                  { // NOT DEFINED, return code of searchHashMap is non 0
                     STORE_SYMBOL_WERR (
-                        key, counter,
-                        printf ("failed %s w %lu\n", key, counter));
-                    addr = counter;
-                    counter++;
+                        key, variableCounter,
+                        printf ("failed %s w %lu\n", key, variableCounter));
+                    addr = variableCounter;
+                    variableCounter++;
                   }
               }
-            else
-              { // numeral
+            else // NUMERAL (FIXED ADDR)
+              {
+                // Parse decimal number
                 if (dec2int (rline + startp + 1, end - startp - 2, &addr))
+                {
+                  // TODO: error handle
                   printf ("ERRl\n");
-                // TODO: err
+                }
               }
+            // === NOTE: WRITE ADDRESS ==
             if (int2bin16 (addr, bin))
               {
                 printf ("Tried to convert %d", addr);
               }
-            fputs (bin, fhack);
-            fputc ('\n', fhack);
-            continue; // while read
+            // GOTO WRITE OP (after else)
           }
         else
           {
+            // == NOTE: C INSTRUCTION ==
             bin[0] = '1';
             bin[1] = '1';
             bin[2] = '1';
+
             int destp = 0; // position of '='; if = 0 means there's no =
                            // cuz = at the beg. it'd give invalid synthax err
             size_t compp = 0; // position of ';'; if = 0 means ...
-
+            // get destp and compp
             for (int i = startp; i < end; i++)
               {
                 switch (rline[i])
@@ -281,6 +250,7 @@ main (int argc, char *argv[])
               compp = end;
             if (!destp)
               destp = startp - 1;
+
             char *comp = malloc (sizeof (char) * KEY_MAX_LEN);
             CPY (comp, rline, destp + 1, compp - destp - 1);
             comp[compp - destp - 1] = '\0';
@@ -292,6 +262,7 @@ main (int argc, char *argv[])
               }
             free (comp);
             comp = comp_data[pos];
+            // copy resulting comp to bin
             for (int i = 0; i < 7; i++)
               bin[i + 3] = comp[i];
 
@@ -333,12 +304,14 @@ main (int argc, char *argv[])
             bin[13] = jmp[0];
             bin[14] = jmp[1];
             bin[15] = jmp[2];
-
-            fputs (bin, fhack);
-            fputc ('\n', fhack);
-            continue;
-          }
+            // GOTO WRITE OP
+         }
+        // WRITE OP
+        fputs (bin, fhack);
+        fputc ('\n', fhack);
       } // while read
+
+    // ++ LOCAL EXIT ++
   exit:
     FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
     FREE_MAP (comp_keys, COMP_SIZE);
