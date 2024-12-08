@@ -5,133 +5,107 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NA -1
-
 int
 main (int argc, char *argv[])
 {
-  constexpr size_t MAX_LEN = 20;
+  constexpr size_t KEY_MAX_LEN = 20;
   constexpr size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
-  char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, MAX_LEN);
+  char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, KEY_MAX_LEN);
   if (!symbol_keys)
     {
-       //TODO: free mem handle
+      // TODO: free mem handle
       printf ("Failed to allocate memory, do you have enough?\n");
-      exit(1);
+      exit (1);
     }
 
   size_t symbol_data[SYMBOL_TABLE_SIZE];
   for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
     symbol_data[i] = 0;
 
-#define HASH(key, data, HKEYS, HDATA, size, err_proc)                         \
-  {                                                                           \
-    size_t pos = 0;                                                           \
-    if (allocHashMap (HKEYS, key, size, &pos) != 0)                           \
-      {                                                                       \
-        err_proc;                                                             \
-      }                                                                       \
-    HDATA[pos] = data;                                                        \
-  }
-
-#define freeMap(map, size)                                                    \
-  {                                                                           \
-    for (int i = 0; i < size; i++)                                            \
-      {                                                                       \
-        free (map[i]);                                                        \
-      }                                                                       \
-  }
-
-#define SSYMBOL(key, data, err_proc)                                          \
-  HASH (key, data, symbol_keys, symbol_data, SYMBOL_TABLE_SIZE, err_proc)
-#define SYMBOL(key, data)                                                     \
-  HASH (key, data, symbol_keys, symbol_data, SYMBOL_TABLE_SIZE,               \
-        printf ("ST missing space \n");                                       \
-        exit (1))
-
   // Wont check for missing space in hashtable for the default tags
   // Because of course there is
-  SYMBOL ("R0", 0);
-  SYMBOL ("R1", 1);
-  SYMBOL ("R2", 2);
-  SYMBOL ("R3", 3);
-  SYMBOL ("R4", 4);
-  SYMBOL ("R5", 5);
-  SYMBOL ("R6", 6);
-  SYMBOL ("R7", 7);
-  SYMBOL ("R8", 8);
-  SYMBOL ("R9", 9);
-  SYMBOL ("R10", 10);
-  SYMBOL ("R11", 11);
-  SYMBOL ("R12", 12);
-  SYMBOL ("R13", 13);
-  SYMBOL ("R14", 14);
-  SYMBOL ("R15", 15);
-  SYMBOL ("SCREEN", 16384);
-  SYMBOL ("KBD", 24576);
-  SYMBOL ("SP", 0);
-  SYMBOL ("LCL", 1);
-  SYMBOL ("ARG", 2);
-  SYMBOL ("THIS", 3);
-  SYMBOL ("THAT", 4);
+  STORE_SYMBOL ("R0", 0);
+  STORE_SYMBOL ("R1", 1);
+  STORE_SYMBOL ("R2", 2);
+  STORE_SYMBOL ("R3", 3);
+  STORE_SYMBOL ("R4", 4);
+  STORE_SYMBOL ("R5", 5);
+  STORE_SYMBOL ("R6", 6);
+  STORE_SYMBOL ("R7", 7);
+  STORE_SYMBOL ("R8", 8);
+  STORE_SYMBOL ("R9", 9);
+  STORE_SYMBOL ("R10", 10);
+  STORE_SYMBOL ("R11", 11);
+  STORE_SYMBOL ("R12", 12);
+  STORE_SYMBOL ("R13", 13);
+  STORE_SYMBOL ("R14", 14);
+  STORE_SYMBOL ("R15", 15);
+  STORE_SYMBOL ("SCREEN", 16384);
+  STORE_SYMBOL ("KBD", 24576);
+  STORE_SYMBOL ("SP", 0);
+  STORE_SYMBOL ("LCL", 1);
+  STORE_SYMBOL ("ARG", 2);
+  STORE_SYMBOL ("THIS", 3);
+  STORE_SYMBOL ("THAT", 4);
 
   char *const asmPath = argc > 1 ? argv[1] : NULL;
   if (!asmPath)
     {
-      printf("Missing file\n");
-      freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
+      printf ("Missing file\n");
+      FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
       free (symbol_keys);
-       //TODO: free mem handle
-      exit(1);
+      // TODO: free mem handle
+      exit (1);
     }
 
-  char *const hackPath = malloc (sizeof(asmPath)+sizeof(".hack"));
-  if(!hackPath)
-  {
-    freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
-    free(symbol_keys);
-       //TODO: free mem handle
-    exit(1);
-  }
+  char *const hackPath = malloc (sizeof (asmPath) + sizeof (".hack"));
+  if (!hackPath)
+    {
+      FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
+      free (symbol_keys);
+      // TODO: free mem handle
+      exit (1);
+    }
   {
     register int i = 0;
-    for (; asmPath[i] != '.' && asmPath[i]!='\0'; i++){
-      hackPath[i] = asmPath[i];
-    }
-    strcpy(hackPath+i, ".hack");
+    for (; asmPath[i] != '.' && asmPath[i] != '\0'; i++)
+      {
+        hackPath[i] = asmPath[i];
+      }
+    strcpy (hackPath + i, ".hack");
   }
 
-  const size_t MAX_READ = 80;
+  const size_t MAX_RLINE_LEN = 80;
 
   // load tags
   {
     FILE *fasm = fopen (asmPath, "r");
     if (!fasm)
-    {
-      printf ("Error reading file %s\n", asmPath);
-      freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
-      free(symbol_keys);
-       //TODO: free mem handle
-      exit(1);
-    }
+      {
+        printf ("Error reading file %s\n", asmPath);
+        FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
+        free (symbol_keys);
+        // TODO: free mem handle
+        exit (1);
+      }
 
-    char rline[MAX_READ]; // longer lines are useless for assembly
+    char rline[MAX_RLINE_LEN]; // longer lines are useless for assembly
     size_t counter = 0;
 
-    while (fgets (rline, MAX_READ, fasm))
+    while (fgets (rline, MAX_RLINE_LEN, fasm))
       {
         switch (rline[0])
           {
           case '(':
             { // tag
-              char key[MAX_READ];
+              char key[KEY_MAX_LEN];
               // copy to key
               register int i = 1;
               for (; rline[i] != ')'; i++)
                 key[i - 1] = rline[i];
               key[i - 1] = '\0';
 
-              SYMBOL (key, counter);
+              STORE_SYMBOL (key, counter);
               break;
             }
           case '\r':
@@ -152,71 +126,66 @@ main (int argc, char *argv[])
     FILE *fasm = fopen (asmPath, "r");
     FILE *fhack = fopen (hackPath, "w");
     if (fasm == NULL || fhack == NULL)
-    {
-       printf ("Error reading file %s, and writing %s\n", asmPath, hackPath);
-       //TODO: free mem handle
-       exit(1);
-    }
-         char rline[MAX_READ]; // longer lines are useless for assembly
+      {
+        printf ("Error reading file %s, and writing %s\n", asmPath, hackPath);
+        // TODO: free mem handle
+        exit (1);
+      }
+    char rline[MAX_RLINE_LEN]; // longer lines are useless for assembly
     size_t counter = 16;
 
-    // COMPARE HASH
+    // COMPARE STORE_IN_HASH
     constexpr size_t COMP_SIZE = 47; // 47
-    char **const comp_keys = initHashTable (COMP_SIZE, MAX_LEN);
+    char **const comp_keys = initHashTable (COMP_SIZE, KEY_MAX_LEN);
     if (!comp_keys)
       goto exit;
     char *comp_data[COMP_SIZE];
 
-#define COMP(key, val)                                                        \
-  HASH (key, val, comp_keys, comp_data, COMP_SIZE, (*defhasherr) ())
+    STORE_COMP ("0", "0101010");
+    STORE_COMP ("1", "0111111");
+    STORE_COMP ("-1", "0111010");
+    STORE_COMP ("D", "0001100");
+    STORE_COMP ("A", "0110000");
+    STORE_COMP ("!D", "0001101");
+    STORE_COMP ("!A", "0110001");
+    STORE_COMP ("-D", "0001111");
+    STORE_COMP ("-A", "1100110");
+    STORE_COMP ("D+1", "0011111");
+    STORE_COMP ("A+1", "0110111");
+    STORE_COMP ("D-1", "0001110");
+    STORE_COMP ("A-1", "0110010");
+    STORE_COMP ("D+A", "0000010");
+    STORE_COMP ("D-A", "0010011");
+    STORE_COMP ("A-D", "0111000");
+    STORE_COMP ("D&A", "0000000");
+    STORE_COMP ("D|A", "0010101");
+    STORE_COMP ("M", "1110000");
+    STORE_COMP ("!M", "1110001");
+    STORE_COMP ("-M", "1110011");
+    STORE_COMP ("M+1", "1110111");
+    STORE_COMP ("M-1", "1110010");
+    STORE_COMP ("D+M", "1000010");
+    STORE_COMP ("D-M", "1010011");
+    STORE_COMP ("M-D", "1000111");
+    STORE_COMP ("D&M", "1000000");
+    STORE_COMP ("D|M", "1010101");
 
-    COMP ("0", "0101010");
-    COMP ("1", "0111111");
-    COMP ("-1", "0111010");
-    COMP ("D", "0001100");
-    COMP ("A", "0110000");
-    COMP ("!D", "0001101");
-    COMP ("!A", "0110001");
-    COMP ("-D", "0001111");
-    COMP ("-A", "1100110");
-    COMP ("D+1", "0011111");
-    COMP ("A+1", "0110111");
-    COMP ("D-1", "0001110");
-    COMP ("A-1", "0110010");
-    COMP ("D+A", "0000010");
-    COMP ("D-A", "0010011");
-    COMP ("A-D", "0111000");
-    COMP ("D&A", "0000000");
-    COMP ("D|A", "0010101");
-    COMP ("M", "1110000");
-    COMP ("!M", "1110001");
-    COMP ("-M", "1110011");
-    COMP ("M+1", "1110111");
-    COMP ("M-1", "1110010");
-    COMP ("D+M", "1000010");
-    COMP ("D-M", "1010011");
-    COMP ("M-D", "1000111");
-    COMP ("D&M", "1000000");
-    COMP ("D|M", "1010101");
-
-    // JMP HASH
+    // JMP STORE_IN_HASH
     const size_t JMP_SIZE = 14;
-    char **const jmp_keys = initHashTable (JMP_SIZE, MAX_LEN);
+    char **const jmp_keys = initHashTable (JMP_SIZE, KEY_MAX_LEN);
     if (!jmp_keys)
       goto exit;
     char *jmp_data[COMP_SIZE];
-#define JMP(key, val)                                                         \
-  HASH (key, val, jmp_keys, jmp_data, JMP_SIZE, (*defhasherr) ())
 
-    JMP ("JGT", "001");
-    JMP ("JEQ", "010");
-    JMP ("JGE", "011");
-    JMP ("JLT", "100");
-    JMP ("JNE", "101");
-    JMP ("JLE", "110");
-    JMP ("JMP", "111");
+    STORE_JMP ("JGT", "001");
+    STORE_JMP ("JEQ", "010");
+    STORE_JMP ("JGE", "011");
+    STORE_JMP ("JLT", "100");
+    STORE_JMP ("JNE", "101");
+    STORE_JMP ("JLE", "110");
+    STORE_JMP ("JMP", "111");
 
-    while (fgets (rline, MAX_READ, fasm))
+    while (fgets (rline, MAX_RLINE_LEN, fasm))
       {
         switch (rline[0])
           {
@@ -242,19 +211,13 @@ main (int argc, char *argv[])
         if (startp == end) // means a line like: `  \r\n` which is empty
           continue;        // skip
 
-#define CPY(dest, str, start, offset)                                         \
-  for (int i = 0; i < offset; i++)                                            \
-    {                                                                         \
-      dest[i] = str[start + i];                                               \
-    }
-
         char bin[16] = { '0' };
         if (rline[startp] == '@') // a instr
           {
             int addr;
             if (rline[startp + 1] >= 'A')
               { // literal
-                char key[MAX_LEN];
+                char key[KEY_MAX_LEN];
                 CPY (key, rline, startp + 1, end - startp);
                 key[end - startp - 1] = '\0';
 
@@ -264,8 +227,9 @@ main (int argc, char *argv[])
                   addr = symbol_data[pos];
                 else
                   { // var, return code of searchHashMap is non 0
-                    SSYMBOL (key, counter,
-                             printf ("failed %s w %lu\n", key, counter));
+                    STORE_SYMBOL_WERR (
+                        key, counter,
+                        printf ("failed %s w %lu\n", key, counter));
                     addr = counter;
                     counter++;
                   }
@@ -314,7 +278,7 @@ main (int argc, char *argv[])
               compp = end;
             if (!destp)
               destp = startp - 1;
-            char *comp = malloc (sizeof (char) * MAX_LEN);
+            char *comp = malloc (sizeof (char) * KEY_MAX_LEN);
             CPY (comp, rline, destp + 1, compp - destp - 1);
             comp[compp - destp - 1] = '\0';
             size_t pos = 0;
@@ -373,9 +337,9 @@ main (int argc, char *argv[])
           }
       } // while read
   exit:
-    freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
-    freeMap (comp_keys, COMP_SIZE);
-    freeMap (jmp_keys, JMP_SIZE);
+    FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
+    FREE_MAP (comp_keys, COMP_SIZE);
+    FREE_MAP (jmp_keys, JMP_SIZE);
 
     free (symbol_keys);
     free (comp_keys);
