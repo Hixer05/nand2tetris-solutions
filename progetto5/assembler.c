@@ -1,7 +1,6 @@
 #include "assembler.h"
 #include "binary.h"
 #include "hashmap.h"
-#include "intpow.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
