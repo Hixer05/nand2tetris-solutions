@@ -15,7 +15,9 @@ main (int argc, char *argv[])
   char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, MAX_LEN);
   if (!symbol_keys)
     {
+       //TODO: free mem handle
       printf ("Failed to allocate memory, do you have enough?\n");
+      exit(1);
     }
 
   size_t symbol_data[SYMBOL_TABLE_SIZE];
@@ -79,6 +81,7 @@ main (int argc, char *argv[])
       printf("Missing file\n");
       freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
       free (symbol_keys);
+       //TODO: free mem handle
       exit(1);
     }
 
@@ -87,6 +90,7 @@ main (int argc, char *argv[])
   {
     freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
     free(symbol_keys);
+       //TODO: free mem handle
     exit(1);
   }
   {
@@ -107,6 +111,7 @@ main (int argc, char *argv[])
       printf ("Error reading file %s\n", asmPath);
       freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
       free(symbol_keys);
+       //TODO: free mem handle
       exit(1);
     }
 
@@ -147,8 +152,12 @@ main (int argc, char *argv[])
     FILE *fasm = fopen (asmPath, "r");
     FILE *fhack = fopen (hackPath, "w");
     if (fasm == NULL || fhack == NULL)
-      printf ("Error reading file %s", asmPath);
-    char rline[MAX_READ]; // longer lines are useless for assembly
+    {
+       printf ("Error reading file %s, and writing %s\n", asmPath, hackPath);
+       //TODO: free mem handle
+       exit(1);
+    }
+         char rline[MAX_READ]; // longer lines are useless for assembly
     size_t counter = 16;
 
     // COMPARE HASH
