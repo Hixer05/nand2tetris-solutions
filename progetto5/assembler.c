@@ -34,7 +34,8 @@ main ()
   HASH (key, data, symbol_keys, symbol_data, SYMBOL_TABLE_SIZE, err_proc)
 #define SYMBOL(key, data)                                                     \
   HASH (key, data, symbol_keys, symbol_data, SYMBOL_TABLE_SIZE,               \
-        printf("ST missing space \n"); exit(1))
+        printf ("ST missing space \n");                                       \
+        exit (1))
 
   // Wont check for missing space in hashtable for the default tags
   // Because of course there is
@@ -177,8 +178,8 @@ main ()
           case '\r':
           case '\n':
             continue; // useless
-          default: // not instr
-              break;
+          default:    // not instr
+            break;
           }
 
         // calc start point of instr (after tab)
@@ -200,7 +201,7 @@ main ()
       dest[i] = str[start + i];                                               \
     }
 
-        char bin[16] = {'0'};
+        char bin[16] = { '0' };
         if (rline[startp] == '@') // a instr
           {
             int addr;
@@ -211,25 +212,26 @@ main ()
                 key[end - startp - 1] = '\0';
 
                 size_t pos = 0;
-                if (!searchHashMap(symbol_keys, key, SYMBOL_TABLE_SIZE,
+                if (!searchHashMap (symbol_keys, key, SYMBOL_TABLE_SIZE,
                                     &pos)) // trovato
                   addr = symbol_data[pos];
                 else
                   { // var, return code of searchHashMap is non 0
-                    SSYMBOL (key, counter, printf("failed %s w %lu\n", key, counter));
+                    SSYMBOL (key, counter,
+                             printf ("failed %s w %lu\n", key, counter));
                     addr = counter;
                     counter++;
                   }
               }
             else
               { // numeral
-                if (dec2int(rline + startp + 1, end - startp - 2, &addr))
+                if (dec2int (rline + startp + 1, end - startp - 2, &addr))
                   printf ("ERRl\n");
                 // TODO: err
               }
             if (int2bin16 (addr, bin))
               {
-                  printf("Tried to convert %d", addr);
+                printf ("Tried to convert %d", addr);
               }
             fputs (bin, fhack);
             fputc ('\n', fhack);

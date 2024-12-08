@@ -2,8 +2,7 @@
 #include "intpow.h"
 #include <stddef.h>
 
-[[nodiscard]] const int inline
-int2bin16 (int addr, char *const binary)
+[[nodiscard]] const int inline int2bin16 (int addr, char *const binary)
 {
   _Bool compl = 0;
   if (addr > ipow (2, 15) || addr < -ipow (2, 15))
@@ -19,15 +18,14 @@ int2bin16 (int addr, char *const binary)
   return 0;
 }
 
-const int inline
-dec2int (char *const str, const size_t offset, int*const out)
+const int inline dec2int (char *const str, const size_t offset, int *const out)
 {
   *out = 0;
-  for (int i = 0; i <= offset ; i++)
+  for (int i = 0; i <= offset; i++)
     {
-        if(str[i]<'0'|| str[i]>'9')
-            return -1;
-        *out += (str[i] - '0') * ipow(10, offset-i);
+      if (str[i] < '0' || str[i] > '9')
+        return -1;
+      *out += (str[i] - '0') * ipow (10, offset - i);
     }
   return 0;
 }

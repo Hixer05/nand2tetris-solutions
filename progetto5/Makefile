@@ -25,6 +25,5 @@ intpow.o: intpow.h intpow.c
 binary.o: binary.h binary.c
 	$(CC) $(CFLAGS) -c binary.c
 
-
 clean:
-	rm tmp/*.o bin/assembler
+	rm *.o bin/test
