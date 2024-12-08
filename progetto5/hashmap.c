@@ -8,7 +8,7 @@ initHashTable (char **const hashTable, const size_t size, const size_t strLen)
 {
   for (register int i = 0; i < size; i++)
     {
-      hashTable[i] = malloc (sizeof (char) * size);
+      hashTable[i] = malloc (sizeof (char) * strLen);
       hashTable[i][0] = '\0';
     }
 }

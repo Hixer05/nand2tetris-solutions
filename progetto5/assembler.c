@@ -14,7 +14,7 @@ main ()
   constexpr size_t MAX_LEN = 20;
   constexpr size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
   char **const symbol_keys = malloc (SYMBOL_TABLE_SIZE * sizeof (char *));
-  initHashTable (symbol_keys, SYMBOL_TABLE_SIZE, MAX_LEN);
+  initHashTable(symbol_keys, SYMBOL_TABLE_SIZE, MAX_LEN);
 
   size_t symbol_data[SYMBOL_TABLE_SIZE];
   for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
@@ -112,7 +112,6 @@ main ()
     if (fasm == NULL || fhack == NULL)
       printf ("Error reading file %s", asmPath);
     char rline[MAX_READ]; // longer lines are useless for assembly
-    char wline[17];       // 16bit + '\0'
     size_t counter = 16;
 
     // COMPARE HASH
@@ -326,9 +325,20 @@ main ()
           }
       } // while read
   exit:
+#define freeMap(map, size){ \
+      for(int i = 0; i<size; i++){ \
+        free(map[i]); \
+      } \
+  } \
+
+    freeMap(symbol_keys, SYMBOL_TABLE_SIZE);
+    freeMap(comp_keys, COMP_SIZE);
+    freeMap(jmp_keys, JMP_SIZE);
+
     free (symbol_keys);
     free (comp_keys);
     free (jmp_keys);
+
     fclose (fhack);
     fclose (fasm);
   }

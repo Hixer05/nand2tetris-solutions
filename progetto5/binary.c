@@ -4,7 +4,6 @@
 
 [[nodiscard]] const int inline int2bin16 (int addr, char *const binary)
 {
-  _Bool compl = 0;
   if (addr > ipow (2, 15) || addr < -ipow (2, 15))
     return -1;
   // most signf. bit to the left
