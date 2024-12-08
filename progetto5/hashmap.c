@@ -58,7 +58,7 @@ searchHashMap (char **const hashTable, char const *const key, const size_t size,
     for(register int i = 0; i < size; i++){
         if(hashTable[pos_l][0] == '\0') // not found
             return -1;
-        else if(strcmp(hashTable[pos_l], key)){ // found
+        else if(!strcmp(hashTable[pos_l], key)){ // found
             *pos = pos_l;
             return 0;
         } else // occupied
