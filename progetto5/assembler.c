@@ -8,7 +8,7 @@
 #define NA -1
 
 int
-main ()
+main (int argc, char *argv[])
 {
   constexpr size_t MAX_LEN = 20;
   constexpr size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
@@ -30,6 +30,14 @@ main ()
         err_proc;                                                             \
       }                                                                       \
     HDATA[pos] = data;                                                        \
+  }
+
+#define freeMap(map, size)                                                    \
+  {                                                                           \
+    for (int i = 0; i < size; i++)                                            \
+      {                                                                       \
+        free (map[i]);                                                        \
+      }                                                                       \
   }
 
 #define SSYMBOL(key, data, err_proc)                                          \
@@ -65,16 +73,43 @@ main ()
   SYMBOL ("THIS", 3);
   SYMBOL ("THAT", 4);
 
-  // TODO: flag set
-  char *const asmPath = "Rect.asm";
-  char *const hackPath = "out.hack";
+  char *const asmPath = argc > 1 ? argv[1] : NULL;
+  if (!asmPath)
+    {
+      printf("Missing file\n");
+      freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
+      free (symbol_keys);
+      exit(1);
+    }
+
+  char *const hackPath = malloc (sizeof(asmPath)+sizeof(".hack"));
+  if(!hackPath)
+  {
+    freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
+    free(symbol_keys);
+    exit(1);
+  }
+  {
+    register int i = 0;
+    for (; asmPath[i] != '.' && asmPath[i]!='\0'; i++){
+      hackPath[i] = asmPath[i];
+    }
+    strcpy(hackPath+i, ".hack");
+  }
+
   const size_t MAX_READ = 80;
 
   // load tags
   {
     FILE *fasm = fopen (asmPath, "r");
-    if (fasm == NULL)
-      printf ("Error reading file %s", asmPath);
+    if (!fasm)
+    {
+      printf ("Error reading file %s\n", asmPath);
+      freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
+      free(symbol_keys);
+      exit(1);
+    }
+
     char rline[MAX_READ]; // longer lines are useless for assembly
     size_t counter = 0;
 
@@ -119,7 +154,7 @@ main ()
     // COMPARE HASH
     constexpr size_t COMP_SIZE = 47; // 47
     char **const comp_keys = initHashTable (COMP_SIZE, MAX_LEN);
-    if(!comp_keys)
+    if (!comp_keys)
       goto exit;
     char *comp_data[COMP_SIZE];
 
@@ -158,7 +193,7 @@ main ()
     // JMP HASH
     const size_t JMP_SIZE = 14;
     char **const jmp_keys = initHashTable (JMP_SIZE, MAX_LEN);
-    if(!jmp_keys)
+    if (!jmp_keys)
       goto exit;
     char *jmp_data[COMP_SIZE];
 #define JMP(key, val)                                                         \
@@ -329,14 +364,6 @@ main ()
           }
       } // while read
   exit:
-#define freeMap(map, size)                                                    \
-  {                                                                           \
-    for (int i = 0; i < size; i++)                                            \
-      {                                                                       \
-        free (map[i]);                                                        \
-      }                                                                       \
-  }
-
     freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
     freeMap (comp_keys, COMP_SIZE);
     freeMap (jmp_keys, JMP_SIZE);
