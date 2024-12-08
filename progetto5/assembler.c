@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+// TODO: design free and exit system for errs
+// TODO: 14 bytes at use in exit, check allo malloc
+
 int
 main (int argc, char *argv[])
 {
