@@ -12,8 +12,11 @@ main ()
 {
   constexpr size_t MAX_LEN = 20;
   constexpr size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
-  char **const symbol_keys = malloc (SYMBOL_TABLE_SIZE * sizeof (char *));
-  initHashTable(symbol_keys, SYMBOL_TABLE_SIZE, MAX_LEN);
+  char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, MAX_LEN);
+  if (!symbol_keys)
+    {
+      printf ("Failed to allocate memory, do you have enough?\n");
+    }
 
   size_t symbol_data[SYMBOL_TABLE_SIZE];
   for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
@@ -115,8 +118,9 @@ main ()
 
     // COMPARE HASH
     constexpr size_t COMP_SIZE = 47; // 47
-    char **const comp_keys = malloc (sizeof (char *) * COMP_SIZE);
-    initHashTable (comp_keys, COMP_SIZE, MAX_LEN);
+    char **const comp_keys = initHashTable (COMP_SIZE, MAX_LEN);
+    if(!comp_keys)
+      goto exit;
     char *comp_data[COMP_SIZE];
 
 #define COMP(key, val)                                                        \
@@ -153,8 +157,9 @@ main ()
 
     // JMP HASH
     const size_t JMP_SIZE = 14;
-    char **const jmp_keys = malloc (sizeof (char *) * JMP_SIZE);
-    initHashTable (jmp_keys, JMP_SIZE, MAX_LEN);
+    char **const jmp_keys = initHashTable (JMP_SIZE, MAX_LEN);
+    if(!jmp_keys)
+      goto exit;
     char *jmp_data[COMP_SIZE];
 #define JMP(key, val)                                                         \
   HASH (key, val, jmp_keys, jmp_data, JMP_SIZE, (*defhasherr) ())
@@ -324,15 +329,17 @@ main ()
           }
       } // while read
   exit:
-#define freeMap(map, size){ \
-      for(int i = 0; i<size; i++){ \
-        free(map[i]); \
-      } \
-  } \
+#define freeMap(map, size)                                                    \
+  {                                                                           \
+    for (int i = 0; i < size; i++)                                            \
+      {                                                                       \
+        free (map[i]);                                                        \
+      }                                                                       \
+  }
 
-    freeMap(symbol_keys, SYMBOL_TABLE_SIZE);
-    freeMap(comp_keys, COMP_SIZE);
-    freeMap(jmp_keys, JMP_SIZE);
+    freeMap (symbol_keys, SYMBOL_TABLE_SIZE);
+    freeMap (comp_keys, COMP_SIZE);
+    freeMap (jmp_keys, JMP_SIZE);
 
     free (symbol_keys);
     free (comp_keys);
@@ -350,4 +357,38 @@ defhasherr ()
 {
   printf ("%s\n", "ERR");
   exit (1);
+}
+
+[[nodiscard]] char **const
+initHashTable (const size_t size, const size_t strLen)
+{
+  _Bool _free = 0;
+  char **const hashTable = malloc (sizeof (char *) * size);
+  for (register int i = 0; i < size; i++)
+    {
+      if (!_free) // normal behav
+        {
+          hashTable[i] = malloc (sizeof (char) * strLen);
+          if (!hashTable[i]) // if failed to malloc mem
+            {
+              i = 0; // error start to free ALL MEM from i=0
+              _free = 1;
+              continue;
+            }
+          else // no err
+            hashTable[i][0] = '\0';
+        }
+      else if (_free && hashTable[i]) // if free and hashTable is non NULL; if
+                                      // NULL no need to free
+        free (hashTable[i]);
+      else if (_free && !hashTable[i]) // reached unalloc area
+        break;
+    }
+
+  if (_free)
+    {
+      free (hashTable);
+      return NULL;
+    }
+  return hashTable;
 }

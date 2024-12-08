@@ -1,13 +1,15 @@
 #include "binary.h"
 #include "intpow.h"
 #include <stdio.h>
+#include <malloc.h>
 
-int
-main ()
+int main ()
 {
-  int i = 1;
-  char asdf[16];
-  (void)int2bin16 (i, asdf);
-  printf ("%d -> %s\n", i, asdf);
+  char * cas = malloc(sizeof(char)*10);
+  printf("%p", cas);
+  free(cas);
+  printf("%p", cas);
+  cas = "asdf";
+  printf("%p", cas);
   return 0;
 }

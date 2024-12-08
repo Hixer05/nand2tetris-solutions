@@ -3,15 +3,6 @@
 #include <malloc.h>
 #include <string.h>
 
-void
-initHashTable (char **const hashTable, const size_t size, const size_t strLen)
-{
-  for (register int i = 0; i < size; i++)
-    {
-      hashTable[i] = malloc (sizeof (char) * strLen);
-      hashTable[i][0] = '\0';
-    }
-}
 
 static inline const size_t
 hash1 (char const *const key)
