@@ -126,7 +126,6 @@ main (int argc, char *argv[])
     STORE_JMP ("JMP", "111");
 
     // ++ COMPUTE ++
-    size_t linec = 0;
     while (fgets (rline, MAX_RLINE_LEN, fasm))
       {
         switch (rline[0]) // if is_instruction else next line
@@ -137,7 +136,6 @@ main (int argc, char *argv[])
           case '\n':
             continue; // useless
           default:    // An instruction
-            linec++;
             break;
           }
 
@@ -309,7 +307,6 @@ defhasherr ()
 [[nodiscard]] char **const
 initHashTable (const size_t size, const size_t strLen)
 {
-  bool _free = false;
   char **const hashTable = malloc (sizeof (char *) * size);
   for (register int i = 0; i < size; i++)
     {
