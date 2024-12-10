@@ -2,10 +2,10 @@ CC = gcc
 CFLAGS = -std=c23 -Wall -Wextra -pedantic
 
 assembler: assembler.o hashmap.o intpow.o binary.o
-	$(CC) $(CFLAGS) -Os -o bin/assembler assembler.o hashmap.o intpow.o binary.o
+	$(CC) $(CFLAGS) -Os -o assembler assembler.o hashmap.o intpow.o binary.o
 
 debug: assembler.o hashmap.o intpow.o binary.o
-	$(CC) $(CFLAGS) -g -o bin/assembler assembler.c hashmap.c intpow.c binary.c
+	$(CC) $(CFLAGS) -g -o assembler assembler.c hashmap.c intpow.c binary.c
 
 test: test.o hashmap.o intpow.o binary.o
 	$(CC) $(CFLAGS) -g -o bin/test test.c hashmap.c intpow.c binary.c

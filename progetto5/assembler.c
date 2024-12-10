@@ -238,7 +238,7 @@ main (int argc, char *argv[])
                 printf ("Synthax error.\n");
                 goto exit;
               }
-            strcpy(comp , comp_data[pos]);
+            strcpy (comp, comp_data[pos]);
             // copy resulting comp to bin
             for (int i = 0; i < 7; i++)
               bin[i + 3] = comp[i];

@@ -3,7 +3,6 @@
 #include <malloc.h>
 #include <string.h>
 
-
 static inline const size_t
 hash1 (char const *const key)
 {
