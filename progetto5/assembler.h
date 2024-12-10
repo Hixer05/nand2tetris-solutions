@@ -15,14 +15,6 @@ static inline void defhasherr ();
     HDATA[pos] = data;                                                        \
   }
 
-#define FREE_MAP(map, size)                                                   \
-  {                                                                           \
-    for (int i = 0; i < size; i++)                                            \
-      {                                                                       \
-        free (map[i]);                                                        \
-      }                                                                       \
-  }
-
 #define STORE_SYMBOL_WERR(key, data, err_proc)                                \
   STORE_IN_HASH (key, data, symbol_keys, symbol_data, SYMBOL_TABLE_SIZE,      \
                  err_proc)

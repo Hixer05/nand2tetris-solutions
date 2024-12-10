@@ -19,7 +19,6 @@ main (int argc, char *argv[])
   char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, KEY_MAX_LEN);
   if (!symbol_keys)
     {
-      // TODO: free mem handle
       printf ("Failed to allocate memory, do you have enough?\n");
       exit (1);
     }
@@ -28,27 +27,16 @@ main (int argc, char *argv[])
   for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
     symbol_data[i] = 0;
 
-  INIT_ST();
+  INIT_ST ();
 
-    char *const asmPath = argc > 1 ? argv[1] : NULL;
-    if (!asmPath)
+  char *const asmPath = argc > 1 ? argv[1] : NULL;
+  if (!asmPath)
     {
       printf ("Missing file\n");
-      FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
-      free (symbol_keys);
-      // TODO: free mem handle
       exit (1);
     }
 
-  char *const hackPath = malloc (sizeof (asmPath) + sizeof (".hack"));
-  if (!hackPath)
-    {
-      FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
-      free (symbol_keys);
-      // TODO: free mem handle
-      exit (1);
-    }
-
+  char hackPath[strlen (asmPath) + sizeof (".hack")];
   // compute hackPath
   {
     register int i = 0;
@@ -59,7 +47,6 @@ main (int argc, char *argv[])
     strcpy (hackPath + i, ".hack");
   }
 
-
   // __ LOAD TAGS __
   {
     // ++ LOCAL DEF ++
@@ -67,9 +54,6 @@ main (int argc, char *argv[])
     if (!fasm)
       {
         printf ("Error reading file %s\n", asmPath);
-        FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
-        free (symbol_keys);
-        // TODO: free mem handle
         exit (1);
       }
 
@@ -97,7 +81,7 @@ main (int argc, char *argv[])
           case '\0':
           case '/':   // comments
             continue; // while loop
-          default: // lines which must be counted
+          default:    // lines which must be counted
             counter++;
             break;
           }
@@ -115,7 +99,6 @@ main (int argc, char *argv[])
     if (fasm == NULL || fhack == NULL)
       {
         printf ("Error reading file %s, and writing %s\n", asmPath, hackPath);
-        // TODO: free mem handle
         exit (1);
       }
 
@@ -128,7 +111,7 @@ main (int argc, char *argv[])
     if (!comp_keys)
       goto exit;
     char *comp_data[COMP_SIZE];
-    INIT_COMP();
+    INIT_COMP ();
 
     // JMP HASH
     const size_t JMP_SIZE = 14;
@@ -166,9 +149,8 @@ main (int argc, char *argv[])
 
         // compute end point
         size_t end = startp + 1;
-        while (!(rline[end] == '\r' ||
-                 rline[end] == '\n' ||
-                 rline[end] == ' '))
+        while (
+            !(rline[end] == '\r' || rline[end] == '\n' || rline[end] == ' '))
           end++;
 
         if (startp == end) // means a line like: `  \r\n` which is empty
@@ -190,8 +172,7 @@ main (int argc, char *argv[])
 
                 size_t pos = 0;
                 // ALREADY DEFINED?
-                if (!searchHashMap (symbol_keys, key, SYMBOL_TABLE_SIZE,
-                                    &pos))
+                if (!searchHashMap (symbol_keys, key, SYMBOL_TABLE_SIZE, &pos))
                   addr = symbol_data[pos];
                 else
                   { // NOT DEFINED, return code of searchHashMap is non 0
@@ -206,10 +187,9 @@ main (int argc, char *argv[])
               {
                 // Parse decimal number
                 if (dec2int (rline + startp + 1, end - startp - 2, &addr))
-                {
-                  // TODO: error handle
-                  printf ("ERRl\n");
-                }
+                  {
+                    printf ("ERR\n");
+                  }
               }
             // === NOTE: WRITE ADDRESS ==
             if (int2bin16 (addr, bin))
@@ -305,7 +285,7 @@ main (int argc, char *argv[])
             bin[14] = jmp[1];
             bin[15] = jmp[2];
             // GOTO WRITE OP
-         }
+          }
         // WRITE OP
         fputs (bin, fhack);
         fputc ('\n', fhack);
@@ -313,14 +293,6 @@ main (int argc, char *argv[])
 
     // ++ LOCAL EXIT ++
   exit:
-    FREE_MAP (symbol_keys, SYMBOL_TABLE_SIZE);
-    FREE_MAP (comp_keys, COMP_SIZE);
-    FREE_MAP (jmp_keys, JMP_SIZE);
-
-    free (symbol_keys);
-    free (comp_keys);
-    free (jmp_keys);
-
     fclose (fhack);
     fclose (fasm);
   }
@@ -338,33 +310,18 @@ defhasherr ()
 [[nodiscard]] char **const
 initHashTable (const size_t size, const size_t strLen)
 {
-  _Bool _free = 0;
+  bool _free = false;
   char **const hashTable = malloc (sizeof (char *) * size);
   for (register int i = 0; i < size; i++)
     {
-      if (!_free) // normal behav
+      hashTable[i] = malloc (sizeof (char) * strLen);
+      if (!hashTable[i]) // if failed to malloc mem
         {
-          hashTable[i] = malloc (sizeof (char) * strLen);
-          if (!hashTable[i]) // if failed to malloc mem
-            {
-              i = 0; // error start to free ALL MEM from i=0
-              _free = 1;
-              continue;
-            }
-          else // no err
-            hashTable[i][0] = '\0';
+          return NULL;
         }
-      else if (_free && hashTable[i]) // if free and hashTable is non NULL; if
-                                      // NULL no need to free
-        free (hashTable[i]);
-      else if (_free && !hashTable[i]) // reached unalloc area
-        break;
+      else // no err
+        hashTable[i][0] = '\0';
     }
 
-  if (_free)
-    {
-      free (hashTable);
-      return NULL;
-    }
   return hashTable;
 }
