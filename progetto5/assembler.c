@@ -5,9 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-#define DEBUG
-
 int
 main (int argc, char *argv[])
 {
@@ -15,6 +12,7 @@ main (int argc, char *argv[])
   constexpr size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
   constexpr size_t MAX_RLINE_LEN = 80;
   constexpr size_t KEY_MAX_LEN = 40;
+
   char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, KEY_MAX_LEN);
   if (!symbol_keys)
     {
@@ -163,9 +161,6 @@ main (int argc, char *argv[])
         if (rline[startp] == '@')
           {
             // === NOTE: A INSTRUCTION ===
-            #ifdef DEBUG
-            printf("%lu: %s\n", linec, rline);
-            #endif
             int addr = 0; // A address
             // NOTE: == GET ADDRESS AS INT ==
             if (rline[startp + 1] >= 'A') // LITERAL AKA TAGS/VARS
@@ -177,12 +172,7 @@ main (int argc, char *argv[])
                 size_t pos = 0;
                 // ALREADY DEFINED?
                 if (!searchHashMap (symbol_keys, key, SYMBOL_TABLE_SIZE, &pos))
-                  {
                   addr = symbol_data[pos];
-                  #ifdef DEBUG
-                  printf("%lu: retrieved %s = %d\n", linec, key, addr);
-                  #endif
-                }
 
                 else
                   { // NOT DEFINED, return code of searchHashMap is non 0
