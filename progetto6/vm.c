@@ -273,10 +273,6 @@ void
 wpush (char *const line, FILE *const writef)
 {
     // NOTE: `push segment address`
-    //  1. Get M[0] (StackPointer)
-    //  2. Get segment[address]
-    //  3. M[M[0]] = segment[address]
-    //  4. M[0] = M[0] + 1
     char segment[20]; // ball-park idc
     char address[5];  // up to 99'999
     sscanf (line, "push %s %s", segment, address);
