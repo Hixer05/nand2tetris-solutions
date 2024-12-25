@@ -329,6 +329,7 @@ wpush (char *const line, FILE *const writef)
 }
 
 void wpop(char*const line, FILE*const writef){
+    // FIXME: save popped in segment addr
     char segment[10], address[5];
     sscanf(line, "pop %s %s", segment, address);
     const char *poss_seg[] = { "argument", "local", "constant", "static" }; // sorted by prob of appear.
@@ -355,4 +356,22 @@ void wpop(char*const line, FILE*const writef){
                 }
             break;
         }
+}
+
+void wadd(char*const line, FILE*const writef){
+    // retrieve first
+    fputs("@0\n@M\nD=M\n@0\nA=A-1\n", writef);
+    // retrieve second and add in place
+    fputs("@0\n@M\nM=D+M\n", writef);
+}
+
+void wsub(char*const line, FILE*const writef){
+    // retrieve second
+    fputs("@0\n@M\nA=A-1\nD=M\n", writef);
+    // sub first in place & pop 2
+    fputs("@0\n@M\nM=D-M\nA=A-1\nA=A-1\n", writef);
+}
+
+void wneg(char*const line, FILE*const writef){
+    fputs("@0\n@M\nM=-M\n", writef);
 }
