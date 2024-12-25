@@ -169,6 +169,22 @@ wlabel (char *const line, FILE *const writef)
     fputs (wline, writef);
 }
 
+void wgoto(char*const line, FILE*const writef){
+    char tag[MAX_RLINE_LEN], wline[MAX_RLINE_LEN] = "@";
+    sscanf(line, "goto %s", tag);
+    strcat(wline, tag);
+    strcat(wline, "\n0;JMP\n");
+    fputs(wline, writef);
+}
+
+void wifgoto(char* const line, FILE*const writef){
+    char label[MAX_RLINE_LEN], wline[MAX_RLINE_LEN]="@0\n@M\nD=M\n@";
+    sscanf(line, "if-goto %s", label);
+    strcat(wline, label);
+    strcat(wline, "\nD;JLT\n");
+    fputs(wline, writef);
+}
+
 void
 wfunctionbreak (char *const line, FILE *const writef)
 {
