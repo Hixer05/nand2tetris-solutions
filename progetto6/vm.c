@@ -276,8 +276,8 @@ wpush (char *const line, FILE *const writef)
     char segment[20]; // ball-park idc
     char address[5];  // up to 99'999
     sscanf (line, "push %s %s", segment, address);
-    char *poss_seg[] = { "argument", "local", "constant", "static" }; // sorted by prob of appear.
-    char *assoc_pos[] = { "2", "1", "", "16" };
+    const char *poss_seg[] = { "argument", "local", "constant", "static" }; // sorted by prob of appear.
+    const char *assoc_pos[] = { "2", "1", "", "" };
     for (int i = 0; i < 4; i++)
         {
             if (!strcmp (address, poss_seg[i]))
@@ -307,6 +307,35 @@ wpush (char *const line, FILE *const writef)
                     strcat(wline, "\nA=A+D\nD=M\n@0\n@M\nM=D\nA=A+1\n");
                     fputs(wline, writef);
                 }
+                }
+            break;
+        }
+}
+
+void wpop(char*const line, FILE*const writef){
+    char segment[10], address[5];
+    sscanf(line, "pop %s %s", segment, address);
+    const char *poss_seg[] = { "argument", "local", "constant", "static" }; // sorted by prob of appear.
+    const char *assoc_pos[] = { "2", "1", "", "" };
+    for (int i = 0; i < 4; i++)
+        {
+            if (!strcmp (address, poss_seg[i]))
+                continue;
+            switch (i)
+                {
+                case 0:
+                case 1:
+                { // edit ARG/LCL--
+                        char wline[MAX_RLINE_LEN] = "@";
+                        strcat(wline, assoc_pos[i]);
+                        strcat(wline, "\nM=M-1\n");
+                        fputs(wline, writef);
+                        break;
+                    }
+                case 2: // pop const, lol
+                    break;
+                case 3:
+                    fputs("@16\nM=M-1\n", writef);
                 }
             break;
         }
