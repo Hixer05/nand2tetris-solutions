@@ -8,7 +8,7 @@
  * this prog makes strong use of TAGS
  */
 
-constexpr size_t MAX_RLINE_LEN = 80;
+#define MAX_RLINE_LEN 80
 
 int
 main (int argc, char *argv[])
@@ -80,33 +80,14 @@ exit:
 [[nodiscard]] char **const
 initHashTable (const size_t size, const size_t strLen)
 {
-    bool _free = false;
     char **const hashTable = malloc (sizeof (char *) * size);
     for (register int i = 0; i < size; i++)
         {
-            if (!_free) // normal behav
-                {
                     hashTable[i] = malloc (sizeof (char) * strLen);
                     if (!hashTable[i]) // if failed to malloc mem
-                        {
-                            i = 0; // error start to free ALL MEM from i=0
-                            _free = true;
-                            continue;
-                        }
+                        return NULL;
                     else // no err
                         hashTable[i][0] = '\0';
-                }
-            else if (_free && hashTable[i]) // if free and hashTable is non NULL; if
-                                            // NULL no need to free
-                free (hashTable[i]);
-            else if (_free && !hashTable[i]) // reached unalloc area
-                break;
-        }
-
-    if (_free)
-        {
-            free (hashTable);
-            return NULL;
         }
     return hashTable;
 }
@@ -116,7 +97,6 @@ initHashTable (const size_t size, const size_t strLen)
     // NOTE line format: `function name locc`
     // We'll set a TAG to JMP to
 
-    // TODO: what should we do with locc? (local var count)
     int locc;
     constexpr size_t fnamep = sizeof ("function ") / sizeof (char) - 1;
     char curfname[MAX_RLINE_LEN];
@@ -138,14 +118,51 @@ initHashTable (const size_t size, const size_t strLen)
     }
 
     // (fname)
-    char wline[MAX_RLINE_LEN] = "(";
-    strcat (wline, curfname);
-    strcat (wline, ")\n");
-    fputs (wline, writef);
+    // NOTE: could've used wlabel but it's just 4 lines
+    {
+        char wline[MAX_RLINE_LEN] = "(";
+        strcat (wline, curfname);
+        strcat (wline, ")\n");
+        fputs (wline, writef);
+    }
+
+    // init local locc variables
+    // @1
+    // A = M // M[M[1]]
+    fputs("@1\nA=M\n", writef);
+    for(int i = 0; i<locc; i++){
+        // M = 0 // .. = 0
+        // A = A+1 // next
+        fputs("M=0\nA=A+1\n",writef);
+    }
+
 
     return 0;
 }
 
+// removes ' ' , '\r', '\n'
+void trim(char* str){
+    for(int i = 0; str[i]!='\0'; i++)
+        switch(str[i]){
+            case '\n':
+            case '\r':
+                str[i] = ' ';
+            case ' ':
+                strcpy(str+i, str+i+1);
+                --i;
+                break;
+        }
+}
+
+void wlabel(char* const line, FILE * const writef){
+    // NOTE: `label L`
+    constexpr size_t labelp = sizeof("label ")/sizeof(char);
+    char wline[MAX_RLINE_LEN] = "(";
+    strcat(wline, line+labelp);
+    trim(wline);
+    strcat(wline, ")\n");
+    fputs(wline, writef);
+}
 
 void
 wfunctionbreak (char *const line, FILE *const writef)
@@ -203,4 +220,13 @@ wfunctioncall (char *const line, FILE *const writef)
     fputs(wline, writef);
 
     timesCalled++;
+}
+
+void wpush(char *const line, FILE *const writef){
+    //NOTE: `push segment address`
+    // 1. Get M[0] (StackPointer)
+    // 2. Get segment[address]
+    // 3. M[M[0]] = segment[address]
+    // 4. M[0] = M[0] + 1
+
 }
