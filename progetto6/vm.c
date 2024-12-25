@@ -306,7 +306,10 @@ wpush (char *const line, FILE *const writef)
                     break;
                 case 3:
                 {
-                    //TODO:
+                    char wline[MAX_RLINE_LEN]="@16\nD=A\n@";
+                    strcat(wline, address);
+                    strcat(wline, "\nA=A+D\nD=M\n@0\n@M\nM=D\nA=A+1\n");
+                    fputs(wline, writef);
                 }
                 }
             break;
