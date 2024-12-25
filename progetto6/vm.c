@@ -58,9 +58,9 @@ main (int argc, char *argv[])
                 case '/':
                     continue;
                 case 'f': // function decl
-                  if (wfunctiondecl (rline + startp, writef))
-                    goto exit;
-                  continue;
+                    if (wfunctiondecl (rline + startp, writef))
+                        goto exit;
+                    continue;
                 case 'b':
                     wfunctionbreak (rline, writef);
                 case 'c': // function call
@@ -83,11 +83,11 @@ initHashTable (const size_t size, const size_t strLen)
     char **const hashTable = malloc (sizeof (char *) * size);
     for (register int i = 0; i < size; i++)
         {
-                    hashTable[i] = malloc (sizeof (char) * strLen);
-                    if (!hashTable[i]) // if failed to malloc mem
-                        return NULL;
-                    else // no err
-                        hashTable[i][0] = '\0';
+            hashTable[i] = malloc (sizeof (char) * strLen);
+            if (!hashTable[i]) // if failed to malloc mem
+                return NULL;
+            else // no err
+                hashTable[i][0] = '\0';
         }
     return hashTable;
 }
@@ -102,20 +102,20 @@ initHashTable (const size_t size, const size_t strLen)
     char curfname[MAX_RLINE_LEN];
     strcpy (curfname, line + fnamep);
     // trim function's locc
-    curfname[strlen(curfname)] = '\0';
+    curfname[strlen (curfname)] = '\0'; // FIXME: strlen(curfname) punta ben oltre locc
 
     // save locc
-    int offset = strlen(curfname)+fnamep+1;
+    int offset = strlen (curfname) + fnamep + 1;
     while (line[offset] >= '0' && line[offset] <= '9') // is num
-      offset++;
+        offset++;
 
     // FIXME: dec2int outputs int but can only parse uint,
     // though it's not a probl. for us now
     if (dec2int (line, offset, &locc))
-    {
-      printf ("Synthax error \n");
-      return -1;
-    }
+        {
+            printf ("Synthax error \n");
+            return -1;
+        }
 
     // (fname)
     // NOTE: could've used wlabel but it's just 4 lines
@@ -129,39 +129,44 @@ initHashTable (const size_t size, const size_t strLen)
     // init local locc variables
     // @1
     // A = M // M[M[1]]
-    fputs("@1\nA=M\n", writef);
-    for(int i = 0; i<locc; i++){
-        // M = 0 // .. = 0
-        // A = A+1 // next
-        fputs("M=0\nA=A+1\n",writef);
-    }
-
+    fputs ("@1\nA=M\n", writef);
+    for (int i = 0; i < locc; i++)
+        {
+            // M = 0 // .. = 0
+            // A = A+1 // next
+            fputs ("M=0\nA=A+1\n", writef);
+        }
 
     return 0;
 }
 
 // removes ' ' , '\r', '\n'
-void trim(char* str){
-    for(int i = 0; str[i]!='\0'; i++)
-        switch(str[i]){
+void
+trim (char *str)
+{
+    for (int i = 0; str[i] != '\0'; i++)
+        switch (str[i])
+            {
             case '\n':
             case '\r':
                 str[i] = ' ';
             case ' ':
-                strcpy(str+i, str+i+1);
+                strcpy (str + i, str + i + 1);
                 --i;
                 break;
-        }
+            }
 }
 
-void wlabel(char* const line, FILE * const writef){
+void
+wlabel (char *const line, FILE *const writef)
+{
     // NOTE: `label L`
-    constexpr size_t labelp = sizeof("label ")/sizeof(char);
+    constexpr size_t labelp = sizeof ("label ") / sizeof (char);
     char wline[MAX_RLINE_LEN] = "(";
-    strcat(wline, line+labelp);
-    trim(wline);
-    strcat(wline, ")\n");
-    fputs(wline, writef);
+    strcat (wline, line + labelp);
+    trim (wline);
+    strcat (wline, ")\n");
+    fputs (wline, writef);
 }
 
 void
@@ -169,64 +174,141 @@ wfunctionbreak (char *const line, FILE *const writef)
 {
     // NOTE line format: `break`
     // we will just jump back to caller
-    fputs("@0\nD=M\nA=D\n0;JMP", writef);
+    fputs ("@0\nD=M\nA=D\n0;JMP", writef);
 }
 
 void
 wfunctioncall (char *const line, FILE *const writef)
 {
-    // NOTE line format: `call fname argc`
-    // First first we must set M[0] to program line (after JMP)
-    // To do this we'll set a TAG and @TAG, D=A, @0, M=D
-    // This way we'll save the cur line in M[0]
-    // We'll make this log_2(TAG) = 5, why? Cuz the ROM is ~32K word long
-    // Then We will just JMP to FNAME TAG
+    // parse line (need 4 later)
+    // NOTE: `call F K`
+    char fname[MAX_RLINE_LEN];
+    char K[MAX_RLINE_LEN];
+    sscanf (line, "call %s %s", fname, K);
 
-    // get TAG
+    // set activation record
+    // set return-address
+    // @return-address // how do we gen this?? as we did
+    // D=A
+    // @0
+    // @M // m[m[0]] == m[sp]; write to top stack
+    // M=D  // (return address)
+    // A=A+1
+
+    // Generate return-address TAG
+    // We'll make this log_2(TAG) = 16, why? Cuz the ROM is ~32K word long
     static size_t timesCalled = 0; // src for TAG gen
     char TAG[17];
-    (void) int2bin16(timesCalled, TAG); // errors can be ignored, see note
-    // since this is 16 bit we'll just copy the bit 11..15
-    for(int i = 0; i<6; i++)
-      TAG[i]=TAG[i+10];
-    TAG[6] = '\0';
+    (void)int2bin16 (timesCalled, TAG); // errors can be ignored, see note
+    TAG[16] = '\0';                     // REVIEW: necessary?
 
-    // get fname
-    char fname[MAX_RLINE_LEN];
-    int i = sizeof("call ")/sizeof(char);
-    for (; line[i] != ' '; i++){
-        fname[i] = line[i];
+    // set return-tag
+    {
+        char wline[MAX_RLINE_LEN] = "@";
+        strcat (wline, TAG);
+        strcat (wline, "\nD=A\n@0\n@M\nM=D\nA=A+1\n");
+        fputs (wline, writef);
     }
-    fname[i] = '\0';
 
-    // set M[0] to TAG
-    char wline[MAX_RLINE_LEN] = "@";
-    strcat (wline, TAG);
-    strcat (wline, "\nD=A\n@0\nM=D\n");
-    fputs(wline, writef);
+    // push LCL, ARG, THIS, THAT
+    // @N
+    // D=M // D = LCL/.../THAT (based on N)
+    // @0
+    // @M
+    // M=D
+    // A=A+1
 
-    // JMP to function
-    wline[0] = '@';
-    wline[1] = '\0'; // prev. used, need this for strcat
-    strcat(wline, fname);
-    strcat(wline, "\n0;JMP\n");
-    fputs(wline, writef);
+    {
+        char positions[] = { '1', '2', '3', '4' };
+        for (int i = 0; i < 4; i++)
+            {
+                char wline[MAX_RLINE_LEN] = "@";
+                wline[1] = positions[i];
+                wline[2] = '\0';
+                strcat (wline, "\nD=M\n@0\n@M\nM=D\nA=A+1\n");
+                fputs (wline, writef);
+            }
+    }
+    // ARG = SP-n-5
+    // @0
+    // D=M
+    // @2
+    // M=D
+    // This twice:
+    // @N // minus N = {5,N}
+    // D=A
+    // @2
+    // M=M-D
+    {
+        char wline[MAX_RLINE_LEN] = "@0\nD=M\n@2\nM=D\n@";
+        char *N[] = { "5", K };
+        // REVIEW: does K have \n?
+        for (int i = 0; i < 2; i++)
+            {
+                strcat (wline, N[i]);
+                strcat (wline, "\nD=A\n@2\nM=M-D\n");
+            }
+        fputs (wline, writef);
+    }
+    // LCL = SP
+    fputs ("@0\nD=M\n@1\nM=D\n", writef);
 
-    // set return tag
-    wline[0] = '(';
-    wline[1] = '\0'; // prev. used, need this for strcat
-    strcat(wline, TAG);
-    strcat(wline, ")\n");
-    fputs(wline, writef);
+    // goto FNAME
+    {
+        char wline[MAX_RLINE_LEN] = "@";
+        strcat (wline, fname);
+        strcat (wline, "\n0;JMP\n");
+        fputs (wline, writef);
+    }
 
-    timesCalled++;
+    // finally set (return-tag)
+    {
+        char wline[MAX_RLINE_LEN] = "(";
+        strcat (wline, TAG);
+        strcat (wline, ")\n");
+    }
 }
 
-void wpush(char *const line, FILE *const writef){
-    //NOTE: `push segment address`
-    // 1. Get M[0] (StackPointer)
-    // 2. Get segment[address]
-    // 3. M[M[0]] = segment[address]
-    // 4. M[0] = M[0] + 1
-
+void
+wpush (char *const line, FILE *const writef)
+{
+    // NOTE: `push segment address`
+    //  1. Get M[0] (StackPointer)
+    //  2. Get segment[address]
+    //  3. M[M[0]] = segment[address]
+    //  4. M[0] = M[0] + 1
+    char segment[20]; // ball-park idc
+    char address[5];  // up to 99'999
+    sscanf (line, "push %s %s", segment, address);
+    char *poss_seg[] = { "argument", "local", "constant", "static" }; // sorted by prob of appear.
+    char *assoc_pos[] = { "2", "1", "", "16" };
+    for (int i = 0; i < 4; i++)
+        {
+            if (!strcmp (address, poss_seg[i]))
+                continue;
+            switch (i)
+                {
+                case 0:
+                case 1:
+                { // get pos to read, read in D, get sp, write to sp
+                        char wline[MAX_RLINE_LEN] = "@"; //"N\nD=M\n@addr\nA=A+D\nD=M\n@0\n@M\nM=D";
+                        strcat(wline, assoc_pos[i]);
+                        strcat(wline, "\nD=M\n@addr\nA=A+D\nD=M\n@0\n@M\nM=D\nA=A+1\n");
+                        fputs(wline, writef);
+                        break;
+                    }
+                case 2:
+                {// get address, M[SP] = adrress;; this is the way constant works
+                    char wline[MAX_RLINE_LEN]="@";
+                    strcat(wline, address);
+                    strcat(wline, "\nD=A\n@0\n@M\nM=D\nA=A+1\n");
+                }
+                    break;
+                case 3:
+                {
+                    //TODO:
+                }
+                }
+            break;
+        }
 }
