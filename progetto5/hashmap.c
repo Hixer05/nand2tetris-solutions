@@ -7,7 +7,7 @@ static inline const size_t
 hash1 (char const *const key)
 {
   // polynomial rolling hash function.
-  constexpr int p_factor = 35; // ~ input alphabet 25+10=35
+  const int p_factor = 35; // ~ input alphabet 25+10=35
   size_t sum = 0;
   for (register int i = 0; key[i] != '\0'; i++)
     sum += key[i] * ipow (p_factor, i);

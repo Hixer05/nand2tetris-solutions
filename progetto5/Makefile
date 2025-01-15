@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c23 -Wall -Wextra -pedantic
+CFLAGS =  -Wall -Wextra -pedantic
 
 assembler: assembler.o hashmap.o intpow.o binary.o
 	$(CC) $(CFLAGS) -Os -o assembler assembler.o hashmap.o intpow.o binary.o

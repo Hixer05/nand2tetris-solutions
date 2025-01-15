@@ -9,9 +9,9 @@ int
 main (int argc, char *argv[])
 {
   // __ MAIN CONST DEF __
-  constexpr size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
-  constexpr size_t MAX_RLINE_LEN = 80;
-  constexpr size_t KEY_MAX_LEN = 40;
+  const size_t SYMBOL_TABLE_SIZE = 4000; // 40; // symbols / 0.6
+  const size_t MAX_RLINE_LEN = 80;
+  const size_t KEY_MAX_LEN = 40;
 
   char **const symbol_keys = initHashTable (SYMBOL_TABLE_SIZE, KEY_MAX_LEN);
   if (!symbol_keys)
@@ -103,10 +103,10 @@ main (int argc, char *argv[])
     size_t variableCounter = 16;
 
     // COMP HASH
-    constexpr size_t COMP_SIZE = 47; // 47
+    const size_t COMP_SIZE = 47; // 47
     char **const comp_keys = initHashTable (COMP_SIZE, KEY_MAX_LEN);
     if (!comp_keys)
-      goto exit;
+       exit (1);
     char *comp_data[COMP_SIZE];
     INIT_COMP ();
 
@@ -114,7 +114,7 @@ main (int argc, char *argv[])
     const size_t JMP_SIZE = 14;
     char **const jmp_keys = initHashTable (JMP_SIZE, KEY_MAX_LEN);
     if (!jmp_keys)
-      goto exit;
+       exit (1);
     char *jmp_data[COMP_SIZE];
 
     STORE_JMP ("JGT", "001");
