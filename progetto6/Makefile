@@ -8,7 +8,6 @@ CFLAG = -Wall -pedantic
 DFLAG = -g -DDEBUG
 SCRF  = vm.c
 ODIR  = bin/
-LDIR  = lib/
 BINN  = vm
 
 vm: vm.o
@@ -16,12 +15,6 @@ vm: vm.o
 
 debug: vmd.o
 	gcc $(CFLAG) $(DFLAG) *.o -o $(ODIR)$(BINN)
-
-libs: $(LDIR)/*
-	gcc $(CFLAG) -c $(LDIR)*.c
-
-libsd: $(LDIR)/*
-	gcc $(CFLAG) $(DFLAG) -c $(LDIR)*.c
 
 vm.o: vm.c vm.h
 	gcc $(CFLAG) -c $(SCRF)
