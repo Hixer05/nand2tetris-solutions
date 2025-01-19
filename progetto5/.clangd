@@ -1,4 +1,5 @@
 CompileFlags:
- Add: [-std=c23]
+ Add: [-Wall, -std=c23]
+
 Style:
     BasedOnStyle: GNU
