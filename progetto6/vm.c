@@ -1,5 +1,4 @@
 #include "vm.h"
-#include "lib/binary.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,14 +7,14 @@
  * this prog makes strong use of TAGS
  */
 
-constexpr size_t MAX_RLINE_LEN = 80;
+#define MAX_RLINE_LEN 80
+#define FUNCTION_HT_SIZE 100
+#define KEY_MAX_LEN 80
 
 int
 main (int argc, char *argv[])
 {
     // __ DEF CONSTANT __
-    constexpr size_t FUNCTION_HT_SIZE = 100;
-    constexpr size_t KEY_MAX_LEN = 80;
     const char *const vmPath = argc >= 2 ? argv[1] : NULL; // err check further down
 
     // __ COMPUTE __
@@ -33,13 +32,19 @@ main (int argc, char *argv[])
         {
             if (asmPath[i] == '.')
                 {
-                    strcpy (asmPath, ".hack");
+                    strcpy (asmPath+i, ".hack");
                     asmPath[i + (sizeof (".hack") / sizeof (char))] = '\0';
                     break;
                 }
         }
 
+    printf("Writing to %s\n", asmPath);
+
     FILE *const writef = fopen (asmPath, "w");
+    if(!writef){
+        printf("Error writing file %s",asmPath);
+        return 1;
+    }
 
     while (fgets (rline, MAX_RLINE_LEN, readf))
         {
@@ -51,7 +56,7 @@ main (int argc, char *argv[])
                         startp++;
                     if (startp + 1 == MAX_RLINE_LEN)
                         continue; // empty line!
-                                  // no break; let's see if @rline[startp] starts a smth else
+                                  // no break; let's see if @rline[startp] starts smth else
                 case '\0':
                 case '\r':
                 case '\n':
@@ -59,15 +64,37 @@ main (int argc, char *argv[])
                     continue;
                 case 'f': // function decl
                   if (wfunctiondecl (rline + startp, writef))
+                  {
+                    printf("Function declaration error:%s\n", rline);
                     goto exit;
+                  }
                   continue;
                 case 'b':
-                    wfunctionbreak (rline, writef);
+                    wfunctionreturn (rline, writef);
+                    continue;
                 case 'c': // function call
                     wfunctioncall (rline, writef);
+                    continue;
                 case 'i': // if-goto
-
+                    wifgoto(rline, writef);
+                    continue;
+                case 'p':
+                    if(rline[1]=='o'){
+                        if(wpop(rline, writef)){
+                            printf("Error pop:%s", rline);
+                            goto exit;
+                        }
+                    }else{
+                        if(wpush(rline, writef)){
+                            printf("Error push:%s", rline);
+                            goto exit;
+                        }
+                    }
                 default: // unrecog
+                    #ifndef DEBUG
+                    printf("Unrecognized synthax:\n%s", rline);
+                    goto exit;
+                    #endif
                     break;
                 }
         }
@@ -77,127 +104,196 @@ exit:
     fclose (writef);
 }
 
-[[nodiscard]] char **const
-initHashTable (const size_t size, const size_t strLen)
-{
-    bool _free = false;
-    char **const hashTable = malloc (sizeof (char *) * size);
-    for (register int i = 0; i < size; i++)
-        {
-            if (!_free) // normal behav
-                {
-                    hashTable[i] = malloc (sizeof (char) * strLen);
-                    if (!hashTable[i]) // if failed to malloc mem
-                        {
-                            i = 0; // error start to free ALL MEM from i=0
-                            _free = true;
-                            continue;
-                        }
-                    else // no err
-                        hashTable[i][0] = '\0';
-                }
-            else if (_free && hashTable[i]) // if free and hashTable is non NULL; if
-                                            // NULL no need to free
-                free (hashTable[i]);
-            else if (_free && !hashTable[i]) // reached unalloc area
-                break;
-        }
+int wpop(char* const line, FILE* const writef){
+    // NOTE line format: `pop segment x`
+    // comput *K = seg+x
+    // @$seg ; D=A ; @$x ; D=D+A; @K; M=D ;
+    // get stack[sp-1]
+    // @SP ; A=A-1; A=M ; D=M;
+    // copy to segment[x]
+    // @K; A=M; A=M ; M=D;
+    // stack--
 
-    if (_free)
-        {
-            free (hashTable);
-            return NULL;
-        }
-    return hashTable;
+    char seg[10], x[10];
+    sscanf(line, "push %s %s", seg, x);
+
+    //comment
+    char wline[MAX_RLINE_LEN]="";
+    sprintf(wline, "//pop %s %s\n", seg, x);
+    fputs(wline, writef);
+    strcpy(wline, "");
+
+    switch(seg[0]){
+        case 'a':
+            strcat(wline, "@ARG");
+            break;
+        case 'l':
+            strcat(wline, "@LCL");
+            break;
+        case 's':
+            strcat(wline, "@16");
+        case 'c': // impossibile; we discard the value
+            fputs("@SP\nM=M-1\n", writef);
+            return 0;
+    }
+    strcat(wline, "\nD=A\n@");
+    strcat(wline, x);
+    strcat(wline, "\bD=D+A\n@K\nM=D\n@SP\nA=A-1\nA=M\n");
+    fputs(wline, writef); // too long
+    strcpy(wline, "D=M\n@K\nA=M\nA=M\nM=D\n@0\nM=M-1\n");
+    fputs(wline, writef);
+    return 0;
 }
 
-[[nodiscard]] int inline wfunctiondecl (char *const line, FILE *const writef)
+int wpush(char* const line, FILE* const writef){
+    //NOTE line format: `push segment k`
+    // switch segment
+    // get K = segment[k]
+    // @$SEGMENT ; D=A; @$K ; A=A+D; D=M;
+    // load segment[k] to stack:
+    // @SP; A=M ; M = D;
+    // SP++
+
+    char seg[10];
+    char k[10];
+    sscanf(line, "push %s %s", seg, k);
+
+    //comment
+    char wline[MAX_RLINE_LEN] = "";
+    sprintf(wline, "//push %s %s\n", seg, k);
+    fputs(wline, writef);
+    strcpy(wline, "");
+
+    switch(seg[0]){
+        case 'a': // argument -> @ARG
+            strcat(wline, "@ARG\n");
+            break;
+        case 'l': // local -> @LCL
+            strcat(wline, "@LCL\n");
+            break;
+        case 's': // static -> 16
+            strcat(wline, "@16\n");
+            break;
+        case 'c': // constant -> special case
+            strcat(wline, "@");
+            strcat(wline, k);
+            strcat(wline, "\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n");
+            fputs(wline, writef);
+            return 0;
+        default:
+            return -1;
+    }
+    strcat(wline, "D=A\n@");
+    strcat(wline, k);
+    strcat(wline, "\nA=A+D\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n");
+    fputs(wline, writef);
+    return 0;
+}
+
+
+// TODO
+void wifgoto(char*const line, FILE*const writef){
+   // NOTE line format:
+
+}
+
+// FIXME
+int wfunctiondecl (char *const line, FILE *const writef)
 {
     // NOTE line format: `function name locc`
     // We'll set a TAG to JMP to
 
-    // TODO: what should we do with locc? (local var count)
-    int locc;
-    constexpr size_t fnamep = sizeof ("function ") / sizeof (char) - 1;
-    char curfname[MAX_RLINE_LEN];
-    strcpy (curfname, line + fnamep);
-    // trim function's locc
-    curfname[strlen(curfname)] = '\0';
-
-    // save locc
-    int offset = strlen(curfname)+fnamep+1;
-    while (line[offset] >= '0' && line[offset] <= '9') // is num
-      offset++;
-
-    // FIXME: dec2int outputs int but can only parse uint,
-    // though it's not a probl. for us now
-    if (dec2int (line, offset, &locc))
-    {
-      printf ("Synthax error \n");
-      return -1;
-    }
+    char fname[MAX_RLINE_LEN], locc[10];
+    sscanf(line, "function %s %s", fname, locc);
 
     // (fname)
     char wline[MAX_RLINE_LEN] = "(";
-    strcat (wline, curfname);
+    strcat (wline, fname);
     strcat (wline, ")\n");
     fputs (wline, writef);
 
     return 0;
 }
 
-
+// FIXME
 void
-wfunctionbreak (char *const line, FILE *const writef)
+wfunctionreturn (char *const line, FILE *const writef)
 {
-    // NOTE line format: `break`
+    // NOTE line format: `return`
     // we will just jump back to caller
-    fputs("@0\nD=M\nA=D\n0;JMP", writef);
+
 }
 
+// FIXME
 void
 wfunctioncall (char *const line, FILE *const writef)
 {
     // NOTE line format: `call fname argc`
-    // First first we must set M[0] to program line (after JMP)
-    // To do this we'll set a TAG and @TAG, D=A, @0, M=D
-    // This way we'll save the cur line in M[0]
-    // We'll make this log_2(TAG) = 5, why? Cuz the ROM is ~32K word long
-    // Then We will just JMP to FNAME TAG
+    // To do this we'll push a TAG:
+    // @TAG, D=A, @0, A=M, M=D, @0, M=M+1
+
 
     // get TAG
     static size_t timesCalled = 0; // src for TAG gen
-    char TAG[17];
-    (void) int2bin16(timesCalled, TAG); // errors can be ignored, see note
-    // since this is 16 bit we'll just copy the bit 11..15
-    for(int i = 0; i<6; i++)
-      TAG[i]=TAG[i+10];
-    TAG[6] = '\0';
+    char TAG[10] = "V";
+    sprintf(TAG+1, "%lu", timesCalled);
 
     // get fname
-    char fname[MAX_RLINE_LEN];
-    int i = sizeof("call ")/sizeof(char);
-    for (; line[i] != ' '; i++){
-        fname[i] = line[i];
-    }
-    fname[i] = '\0';
-
-    // set M[0] to TAG
-    char wline[MAX_RLINE_LEN] = "@";
-    strcat (wline, TAG);
-    strcat (wline, "\nD=A\n@0\nM=D\n");
+    char fname[MAX_RLINE_LEN], argc[10];
+    sscanf(line, "call %s %s", fname, argc);
+    // comment
+    char wline[MAX_RLINE_LEN] = "";
+    sprintf(wline, "//call %s %s\n", fname, argc);
     fputs(wline, writef);
 
+#define PUSH_A "D=A\n@0\nA=M\nM=D\n@0\nM=M+1\n"
+
+    // push TAG
+    strcpy(wline, "@");
+    strcat (wline, TAG);
+    strcat (wline, "\n" PUSH_A);
+    fputs(wline, writef);
+
+    // push LCL
+    strcpy(wline, "");
+    strcat(wline, "@LCL\n" PUSH_A);
+    fputs(wline, writef);
+
+    // push ARG
+    strcpy(wline, "");
+    strcat(wline, "@ARG\n" PUSH_A);
+    fputs(wline, writef);
+
+    // push THIS
+    strcpy(wline, "");
+    strcat(wline, "@THIS\n" PUSH_A);
+    fputs(wline, writef);
+
+    //push THAT
+    strcpy(wline, "");
+    strcat(wline, "@THAT\n" PUSH_A);
+    fputs(wline, writef);
+
+    // reposition ARG
+    strcpy(wline, "@");
+    strcat(wline, argc);
+
+    // ARG (D) = sp - argc - 5; A=D;
+    strcat(wline, "@SP\nA=M\nD=M\n@5\nD=D-A\n@ARG\nA=M\nM=D\n");
+    fputs(wline, writef);
+    fputs(PUSH_A, writef);
+
+    // LCL = SP
+    fputs("@SP\nD=M\n@LCL\nM=D\n", writef);
+
     // JMP to function
-    wline[0] = '@';
-    wline[1] = '\0'; // prev. used, need this for strcat
+    strcpy(wline, "@");
     strcat(wline, fname);
     strcat(wline, "\n0;JMP\n");
     fputs(wline, writef);
 
     // set return tag
-    wline[0] = '(';
-    wline[1] = '\0'; // prev. used, need this for strcat
+    strcpy(wline, "(");
     strcat(wline, TAG);
     strcat(wline, ")\n");
     fputs(wline, writef);

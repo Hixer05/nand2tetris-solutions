@@ -4,7 +4,7 @@
 # @file
 # @version 0.1
 
-CFLAG = -std=c23 -Wall -pedantic
+CFLAG = -Wall -pedantic
 DFLAG = -g -DDEBUG
 SCRF  = vm.c
 ODIR  = bin/
@@ -14,7 +14,7 @@ BINN  = vm
 vm: vm.o
 	gcc $(CFLAG) *.o -o $(ODIR)$(BINN)
 
-debug: vmd.o libsd
+debug: vmd.o
 	gcc $(CFLAG) $(DFLAG) *.o -o $(ODIR)$(BINN)
 
 libs: $(LDIR)/*

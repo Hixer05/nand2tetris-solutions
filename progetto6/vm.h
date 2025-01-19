@@ -3,9 +3,11 @@
 #include <stddef.h>
 #include <stdio.h>
 
-[[nodiscard]] inline char** const initHashTable (const size_t size, const size_t strLen);
-[[nodiscard]] inline int wfunctiondecl(char * const line, FILE*const writef);
-inline void wfunctionbreak(char*const line, FILE *const writef);
-void wfunctioncall (char *const line, FILE *const writef, char * const fnameset);
+inline int wfunctiondecl(char * const line, FILE*const writef);
+inline void wfunctionreturn(char*const line, FILE *const writef);
+void wfunctioncall (char *const line, FILE *const writef);
+void wifgoto(char*const line, FILE*const writef);
+int wpush(char* const line, FILE* const writef);
+int wpop(char* const line, FILE* const writef);
 
 #endif
