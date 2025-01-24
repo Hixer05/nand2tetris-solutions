@@ -31,21 +31,24 @@ main (int argc, char *argv[])
         DIR *d;
         struct dirent *dir;
         d = opendir(vmPath);
-        if (d) {
-            while ((dir = readdir(d)) != NULL) {
-                if(dir->d_name[0]=='.')
-                    continue;
-                else if(strstr(dir->d_name, ".vm")){
-                    char absPath[256*2]="";
-                    strcat(absPath, vmPath);
-                    strcat(absPath, "/");
-                    strcat(absPath, dir->d_name);
-                    printf("Reading %s\n",  dir->d_name);
-                    file(absPath);
-                }
-            }
-            closedir(d);
+        if (!d)
+        {
+            printf("Failed to open dir %s\n", vmPath);
+            return 1;
         }
+        while ((dir = readdir(d)) != NULL) {
+            if(dir->d_name[0]=='.')
+                continue;
+            else if(strstr(dir->d_name, ".vm")){
+                char absPath[256*2]="";
+                strcat(absPath, vmPath);
+                strcat(absPath, "/");
+                strcat(absPath, dir->d_name);
+                printf("Reading %s\n",  dir->d_name);
+                file(absPath);
+            }
+        }
+        closedir(d);
 #endif
   }
 }
@@ -83,28 +86,23 @@ int file(const char*const vmPath){
 
     while (fgets(rline, MAX_RLINE_LEN, readf)!=NULL)
         {
-            size_t startp = 0;
-            switch (rline[startp])
+            char instr[20];
+            sscanf(rline, " %s ", instr);
+            switch (instr[0])
                 {
-                case ' ': // commands or other stuff might be indented
-                    while (startp < MAX_RLINE_LEN && rline[startp] == ' ')
-                        startp++;
-                    if (startp + 1 == MAX_RLINE_LEN)
-                        continue; // empty line!
-                                  // no break; let's see if @rline[startp] starts smth else
                 case '\0':
                 case '\r':
                 case '\n':
                 case '/':
                     continue;
                 case 'a':
-                    if(rline[startp+1]=='n')
+                    if(instr[1]=='n')
                         wand(writef);
                     else
                         wadd(writef);
                     continue;
                 case 'f': // function decl
-                    if (wfunctiondecl (rline + startp, writef))
+                    if (wfunctiondecl (rline, writef))
                     {
                         printf("Function declaration error:%s\n", rline);
                         goto exit;
@@ -123,7 +121,7 @@ int file(const char*const vmPath){
                     wsub(writef);
                     continue;
                 case 'n':
-                    if(rline[startp+1]=='e')
+                    if(instr[1]=='e')
                         wneg(writef);
                     else
                         wnot(writef);
@@ -135,27 +133,27 @@ int file(const char*const vmPath){
                     wifgoto(rline, writef);
                     continue;
                 case 'p':
-                    if(rline[startp+1]=='o'){
+                    if(instr[1]=='o'){
                         if(wpop(rline, writef)){
-                            printf("Error pop:%s", rline);
+                            printf("Error pop:%s\n", rline);
                             goto exit;
                         }
                     }else{
                         if(wpush(rline, writef)){
-                            printf("Error push:%s", rline);
+                            printf("Error push:%s\n", rline);
                             goto exit;
                         }
                     }
                     continue;
                 case 'l':
-                    if(rline[startp+1]=='a'){//lable
+                    if(instr[1]=='a'){//lable
                         wlabel(rline, writef);
                     }else{
                         wlt(writef);
                     }
                     continue;
                 case 'g':
-                    if(rline[startp+1]=='t')
+                    if(instr[1]=='t')
                         wgt(writef);
                     else
                         wgoto(rline, writef);
@@ -179,7 +177,6 @@ void wneg(FILE*const writef){
     fputs("\n//neg\n@SP\nA=M-1\nM=-M\n",writef);
 }
 
-
 void wadd(FILE*const writef){
     //literally the same as wsub
      fputs("\n//add\n@SP\nA=M-1\nD=M\nA=A-1\nD=D+M\n" // a+b
@@ -188,17 +185,15 @@ void wadd(FILE*const writef){
 }
 
 void wsub(FILE*const writef){
-
     fputs("\n//sub\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n" // a-b
           "A=A-1\nM=D\n@SP\nM=M-1\n" // pop to a
           , writef);
-
 }
 
 int wpop(char* const line, FILE* const writef){
     // NOTE line format: `pop segment x`
     char seg[10], x[10];
-    sscanf(line, "pop %s %s", seg, x);
+    sscanf(line, " pop %s %s", seg, x);
 
     //comment
     char wline[MAX_RLINE_LEN*2]="";
@@ -232,7 +227,7 @@ int wpush(char* const line, FILE* const writef){
     //NOTE line format: `push segment k`
     char seg[10];
     char k[10];
-    sscanf(line, "push %s %s", seg, k);
+    sscanf(line, " push %s %s", seg, k);
 
     //comment
     char wline[MAX_RLINE_LEN] = "";
@@ -269,7 +264,7 @@ void wgoto(char*const line, FILE*const writef){
     char label[60];
     char buffer[MAX_RLINE_LEN];
     size_t j = 0;
-    sscanf(line, "goto %s ", label);
+    sscanf(line, " goto %s ", label);
     j+=sprintf(buffer+j, "\n//goto\n@%s\n0;JMP\n", label);
     fputs(buffer, writef);
 }
@@ -328,69 +323,21 @@ void wgt(FILE*const writef){
 }
 
 void wnot(FILE*const writef){
-    // a==0?-1:0
-    /* static size_t timesCalled = 0; */
-    /* char Ttag[7] = "N", Etag[7]="n"; // 2^15 = 32k ; log(32k) ~ 5 */
-    /* sprintf(Ttag+1, "%lu", timesCalled++); // if Less then jump to TAG */
-    /* strcpy(Etag+1, Ttag+1); */
-    /* char buffer[MAX_RLINE_LEN*5]; */
-    /* size_t j = 0; */
-    /* j+=sprintf(buffer+j, "\n//not gate\n@SP\nA=M-1\n@%s\nM;JEQ\n",Ttag); //if a=0 goto TTAG */
-    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG */
-    /* j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nM=-1\n(%s)\n", Ttag, Etag); //then */
     fputs("\n//not\n@SP\nA=M-1\nM=!M\n", writef);
-
 }
 
 void wand(FILE*const writef){
-    // -1 = T | 0 = F
-    // ---------------
-    // -1, -1 -> -1x
-    //  0,  0 -> 0 x
-    // -1,  0 -> 0 x
-    //  0, -1 -> 0 x
-    /* static size_t timesCalled = 0; */
-    /* char Etag[7] = "A", Ftag[7]="a"; // 2^15 = 32k ; log(32k) ~ 5 */
-    /* sprintf(Etag+1, "%lu", timesCalled++); */
-    /* strcpy(Ftag+1, Etag+1); */
-    /* char buffer[MAX_RLINE_LEN*5]; */
-    /* size_t j = 0; */
-    /* j+=sprintf(buffer+j, "\n//and\n@SP\nA=M-1\n@%s\nM;JEQ\n",Ftag); // b=0? goto FALSE */
-    /* j+=sprintf(buffer+j, "@SP\nA=M-1\n@%s\nM;JEQ\n",Ftag); // else check a */
-    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\n@%s\nM;JEQ\n", Ftag); // a=0? goto FALSE */
-    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=-1\n@%s\nM;JEQ\n", Etag); // set true and exit */
-    /* j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",Ftag, Etag); //set FALSE and exit */
-    /* j+=sprintf(buffer+j, "(%s)\n@SP\nM=M-1\n", Etag); // EXIT: POP B */
-
     fputs("\n//and\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D&M\nA=A-1\nM=D\n", writef);
-
 }
 
 void wor(FILE*const writef){
-    /* static size_t timesCalled = 0; */
-    /* char Etag[7] = "A", Ttag[7]="a"; // 2^15 = 32k ; log(32k) ~ 5 */
-    /* sprintf(Etag+1, "%lu", timesCalled++); */
-    /* strcpy(Ttag+1, Etag+1); */
-    char buffer[MAX_RLINE_LEN*5];
-    size_t j = 0;
-
-    j+=sprintf(buffer+j, "\n//or\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D|M\nA=A-1\nM=D\n");
-
-    /* j+=sprintf(buffer+j, "\n//or\n@SP\nA=M-1\n@%s\nM;JLT\n",Ttag); // b<0? goto TRUE */
-    /* j+=sprintf(buffer+j, "@SP\nA=M-1\n@%s\nM;JLT\n",Ttag); // else check a */
-    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\n@%s\nM;JEQ\n", Ttag); // a=0? goto TRUE */
-    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=-1\n@%s\nM;JEQ\n", Etag); // set true and exit */
-    /* j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",Ttag, Etag); //set FALSE and exit */
-    /* j+=sprintf(buffer+j, "(%s)\n@SP\nM=M-1\n", Etag); // EXIT: POP B */
-    fputs(buffer, writef);
-
-
+    fputs("\n//or\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D|M\nA=A-1\nM=D\n", writef);
 }
 
 void wlabel(char*const line, FILE*const writef){
     // NOTE `label L`
     char label[60];
-    sscanf(line, "label %s ", label);
+    sscanf(line, " label %s ", label);
     fputs("\n//label\n(", writef);
     fputs(label, writef);
     fputs(")\n",writef);
@@ -400,7 +347,7 @@ void wifgoto(char*const line, FILE*const writef){
     // check stack if bool true (-1)
     // or false(0)
     char label[10];
-    sscanf(line, "if-goto %s ", label);
+    sscanf(line, " if-goto %s ", label);
     fputs("\n//ifgoto\n@SP\nM=M-1\nA=M\nD=M\n@", writef); // if-goto also pops
     fputs(label, writef);
     fputs("\nD;JLT // J if true\n", writef);
@@ -413,7 +360,7 @@ int wfunctiondecl (char *const line, FILE *const writef)
 
     char fname[MAX_RLINE_LEN-20];
     int locc;
-    sscanf(line, "function %s %d", fname, &locc);
+    sscanf(line, " function %s %d", fname, &locc);
 
     char wline[MAX_RLINE_LEN];
     sprintf(wline, "\n//fun %s %d\n", fname, locc);
@@ -464,7 +411,7 @@ wfunctioncall (char *const line, FILE *const writef)
 
     // get fname
     char fname[MAX_RLINE_LEN-20], argc[10];
-    sscanf(line, "call %s %s", fname, argc);
+    sscanf(line, " call %s %s", fname, argc);
     // comment
     char wline[MAX_RLINE_LEN*6] = "";
     size_t j = 0;
