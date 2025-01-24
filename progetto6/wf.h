@@ -1,10 +1,10 @@
-#ifndef VM_H
-#define VM_H
-#include <stddef.h>
-#include <stdio.h>
+#ifndef WF_H_
+#define WF_H_
+#include<stdio.h>
+#include<stddef.h>
 
-inline int wfunctiondecl(char * const line, FILE*const writef);
-inline void wfunctionreturn(FILE *const writef);
+int wfunctiondecl(char * const line, FILE*const writef);
+void wfunctionreturn(FILE *const writef);
 void wfunctioncall (char *const line, FILE *const writef);
 void wifgoto(char*const line, FILE*const writef);
 int wpush(char* const line, FILE* const writef);
@@ -20,4 +20,5 @@ void wgt(FILE*const writef);
 void wnot(FILE*const writef);
 void wand(FILE*const writef);
 void wor(FILE*const writef);
-#endif
+
+#endif // WF_H_
