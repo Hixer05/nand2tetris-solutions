@@ -83,6 +83,7 @@ main (int argc, char *argv[])
                     continue;
                 case 'o':
                     wor(writef);
+                    continue;
                 case 'r':
                     wfunctionreturn (writef);
                     continue;
@@ -94,6 +95,7 @@ main (int argc, char *argv[])
                         wneg(writef);
                     else
                         wnot(writef);
+                    continue;
                 case 'c': // function call
                     wfunctioncall (rline, writef);
                     continue;
@@ -156,7 +158,7 @@ void wadd(FILE*const writef){
 void wsub(FILE*const writef){
 
     fputs("\n//sub\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n" // a-b
-          "A=A-1\nM=D\n@SP\nM=M-1\n" // pop to a
+          "A=A-1\nM=D\n@SP\n" // pop to a
           , writef);
 
 }
@@ -173,30 +175,30 @@ int wpop(char* const line, FILE* const writef){
 
     //comment
     char wline[MAX_RLINE_LEN*2]="";
-    size_t j=0;
     sprintf(wline, "\n//pop %s %s\n", seg, x);
     fputs(wline, writef);
     strcpy(wline, "");
 
     switch(seg[0]){
         case 'a':
-            strcpy(seg, "@ARG");
-            break;
+            sprintf(wline, "@%s\nD=A\n@ARG\nM=M+D\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n@%s\nD=A\n@ARG\nM=M-D\n", x,x);
+            fputs(wline, writef);
+            return 0;
         case 'l':
-            strcpy(seg, "@LCL");
-            break;
+            sprintf(wline, "@%s\nD=A\n@LCL\nM=M+D\n@SP\nM=M-1\nA=M\nD=M\n@LCL\nA=M\nM=D\n@%s\nD=A\n@LCL\nM=M-D\n", x,x);
+            fputs(wline,writef);
+            return 0;
         case 's':
-            strcpy(seg, "@16");
+            sprintf(wline, "@SP\nM=M-1\nA=M\nD=M\n@%d\nM=D\n", 16+atoi(x));
+            fputs(wline, writef);
+            return 0;
         case 'c': // impossibile; we discard the value
             fputs("@SP\nM=M-1\n", writef);
             return 0;
+        default:
+            return -1;
     }
-    j+=sprintf(wline+j, "%s\nD=M\n@%s\nD=D+A\n@K\nM=D\n" // *K = segptr+x
-                        "@SP\nA=M-1\nD=M\n@K\nA=M\nM=D\n" // store stacktop to K
-                        "@SP\nM=M-1\n"// pop
-               ,seg, x);
-    fputs(wline, writef);
-    return 0;
+    return -1;
 }
 
 int wpush(char* const line, FILE* const writef){
@@ -220,8 +222,9 @@ int wpush(char* const line, FILE* const writef){
             strcpy(seg, "@LCL");
             break;
         case 's': // static -> 16
-            strcpy(seg, "@16");
-            break;
+            sprintf(wline, "@%d\nD=M\n@0\nM=M+1\nA=M-1\nM=D\n", 16+atoi(k));
+            fputs(wline, writef);
+            return 0;
         case 'c': // constant -> special case
             sprintf(wline, "@%s\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", k);
             fputs(wline, writef);
@@ -255,7 +258,7 @@ void wlt(FILE*const writef){
     strcpy(Etag+1, Ttag+1);
     char buffer[MAX_RLINE_LEN*5];
     size_t j = 0;
-    j+=sprintf(buffer+j, "\n//compute lt\n@SP\nA=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n"); //compute a-b
+    j+=sprintf(buffer+j, "\n//compute lt\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n"); //compute a-b
     j+=sprintf(buffer+j, "//ifgoto gate\n@%s\nD;JLT\n",Ttag); //if a-b<0 goto TTAG
     j+=sprintf(buffer+j, "//else\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG
     j+=sprintf(buffer+j, "//then\n(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag);
@@ -272,7 +275,7 @@ void weq(FILE*const writef){
     strcpy(Etag+1, Ttag+1);
     char buffer[MAX_RLINE_LEN*5];
     size_t j = 0;
-    j+=sprintf(buffer+j, "\n//compute eq\n@SP\nA=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n"); //compute a-b
+    j+=sprintf(buffer+j, "\n//compute eq\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n"); //compute a-b
     j+=sprintf(buffer+j, "@%s\nD;JEQ\n",Ttag); //if a-b=0 goto TTAG
     j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG
     j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag); //then
@@ -289,7 +292,7 @@ void wgt(FILE*const writef){
     strcpy(Etag+1, Ttag+1);
     char buffer[MAX_RLINE_LEN*5];
     size_t j = 0;
-    j+=sprintf(buffer+j, "\n//compute gt\n@SP\nA=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n"); //compute a-b
+    j+=sprintf(buffer+j, "\n//compute gt\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n"); //compute a-b
     j+=sprintf(buffer+j, "@%s\nD;JGT\n",Ttag); //if a-b>0 goto TTAG
     j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG
     j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag); //then
@@ -299,16 +302,16 @@ void wgt(FILE*const writef){
 
 void wnot(FILE*const writef){
     // a==0?-1:0
-    static size_t timesCalled = 0;
-    char Ttag[7] = "N", Etag[7]="n"; // 2^15 = 32k ; log(32k) ~ 5
-    sprintf(Ttag+1, "%lu", timesCalled++); // if Less then jump to TAG
-    strcpy(Etag+1, Ttag+1);
-    char buffer[MAX_RLINE_LEN*5];
-    size_t j = 0;
-    j+=sprintf(buffer+j, "\n//not gate\n@SP\nA=M-1\n@%s\nM;JEQ\n",Ttag); //if a=0 goto TTAG
-    j+=sprintf(buffer+j, "@SP\nA=M-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG
-    j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nM=-1\n(%s)\n", Ttag, Etag); //then
-    fputs(buffer, writef);
+    /* static size_t timesCalled = 0; */
+    /* char Ttag[7] = "N", Etag[7]="n"; // 2^15 = 32k ; log(32k) ~ 5 */
+    /* sprintf(Ttag+1, "%lu", timesCalled++); // if Less then jump to TAG */
+    /* strcpy(Etag+1, Ttag+1); */
+    /* char buffer[MAX_RLINE_LEN*5]; */
+    /* size_t j = 0; */
+    /* j+=sprintf(buffer+j, "\n//not gate\n@SP\nA=M-1\n@%s\nM;JEQ\n",Ttag); //if a=0 goto TTAG */
+    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG */
+    /* j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nM=-1\n(%s)\n", Ttag, Etag); //then */
+    fputs("\n//not\n@SP\nA=M-1\nM=!M\n", writef);
 
 }
 
@@ -319,35 +322,39 @@ void wand(FILE*const writef){
     //  0,  0 -> 0 x
     // -1,  0 -> 0 x
     //  0, -1 -> 0 x
-    static size_t timesCalled = 0;
-    char Etag[7] = "A", Ftag[7]="a"; // 2^15 = 32k ; log(32k) ~ 5
-    sprintf(Etag+1, "%lu", timesCalled++);
-    strcpy(Ftag+1, Etag+1);
-    char buffer[MAX_RLINE_LEN*5];
-    size_t j = 0;
-    j+=sprintf(buffer+j, "\n//and\n@SP\nA=M-1\n@%s\nM;JEQ\n",Ftag); // b=0? goto FALSE
-    j+=sprintf(buffer+j, "@SP\nA=M-1\n@%s\nM;JEQ\n",Ftag); // else check a
-    j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\n@%s\nM;JEQ", Ftag); // a=0? goto FALSE
-    j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=-1\n@%s\nM;JEQ", Etag); // set true and exit
-    j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",Ftag, Etag); //set FALSE and exit
-    j+=sprintf(buffer+j, "(%s)\n@SP\nM=M-1\n", Etag); // EXIT: POP B
-    fputs(buffer, writef);
+    /* static size_t timesCalled = 0; */
+    /* char Etag[7] = "A", Ftag[7]="a"; // 2^15 = 32k ; log(32k) ~ 5 */
+    /* sprintf(Etag+1, "%lu", timesCalled++); */
+    /* strcpy(Ftag+1, Etag+1); */
+    /* char buffer[MAX_RLINE_LEN*5]; */
+    /* size_t j = 0; */
+    /* j+=sprintf(buffer+j, "\n//and\n@SP\nA=M-1\n@%s\nM;JEQ\n",Ftag); // b=0? goto FALSE */
+    /* j+=sprintf(buffer+j, "@SP\nA=M-1\n@%s\nM;JEQ\n",Ftag); // else check a */
+    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\n@%s\nM;JEQ\n", Ftag); // a=0? goto FALSE */
+    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=-1\n@%s\nM;JEQ\n", Etag); // set true and exit */
+    /* j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",Ftag, Etag); //set FALSE and exit */
+    /* j+=sprintf(buffer+j, "(%s)\n@SP\nM=M-1\n", Etag); // EXIT: POP B */
+
+    fputs("//and\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D&M\nA=A-1\nM=D\n", writef);
 
 }
 
 void wor(FILE*const writef){
-    static size_t timesCalled = 0;
-    char Etag[7] = "A", Ttag[7]="a"; // 2^15 = 32k ; log(32k) ~ 5
-    sprintf(Etag+1, "%lu", timesCalled++);
-    strcpy(Ttag+1, Etag+1);
+    /* static size_t timesCalled = 0; */
+    /* char Etag[7] = "A", Ttag[7]="a"; // 2^15 = 32k ; log(32k) ~ 5 */
+    /* sprintf(Etag+1, "%lu", timesCalled++); */
+    /* strcpy(Ttag+1, Etag+1); */
     char buffer[MAX_RLINE_LEN*5];
     size_t j = 0;
-    j+=sprintf(buffer+j, "\n//or\n@SP\nA=M-1\n@%s\nM;JLT\n",Ttag); // b<0? goto TRUE
-    j+=sprintf(buffer+j, "@SP\nA=M-1\n@%s\nM;JLQ\n",Ttag); // else check a
-    j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\n@%s\nM;JEQ", Ttag); // a=0? goto TRUE
-    j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=-1\n@%s\nM;JEQ", Etag); // set true and exit
-    j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",Ttag, Etag); //set FALSE and exit
-    j+=sprintf(buffer+j, "(%s)\n@SP\nM=M-1\n", Etag); // EXIT: POP B
+
+    j+=sprintf(buffer+j, "\n//or\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D|M\nA=A-1\nM=D\n");
+
+    /* j+=sprintf(buffer+j, "\n//or\n@SP\nA=M-1\n@%s\nM;JLT\n",Ttag); // b<0? goto TRUE */
+    /* j+=sprintf(buffer+j, "@SP\nA=M-1\n@%s\nM;JLT\n",Ttag); // else check a */
+    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\n@%s\nM;JEQ\n", Ttag); // a=0? goto TRUE */
+    /* j+=sprintf(buffer+j, "@SP\nA=M-1\nA=A-1\nM=-1\n@%s\nM;JEQ\n", Etag); // set true and exit */
+    /* j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",Ttag, Etag); //set FALSE and exit */
+    /* j+=sprintf(buffer+j, "(%s)\n@SP\nM=M-1\n", Etag); // EXIT: POP B */
     fputs(buffer, writef);
 
 
