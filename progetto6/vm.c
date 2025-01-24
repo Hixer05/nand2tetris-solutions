@@ -3,21 +3,54 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-/*
- * this prog makes strong use of TAGS
- */
+
+#ifndef _WIN32
+#include <dirent.h>
+#endif
 
 #define MAX_RLINE_LEN 80
-#define FUNCTION_HT_SIZE 100
-#define KEY_MAX_LEN 80
+
+int file(const char*const vmPath);
 
 int
 main (int argc, char *argv[])
 {
     // __ DEF CONSTANT __
     const char *const vmPath = argc >= 2 ? argv[1] : NULL; // err check further down
+    /* char filePath[256+3] = "./"; */
+    if(strstr(vmPath, ".vm")){
+        /* strcat(filePath, vmPath); */
+        /* printf("%s\n", filePath); */
+        return file(vmPath);
+    }else{// directory
+#ifdef _WIN32
+        printf("VMtranslator file.vm\n Can translate only files on Windows.\n");
+        return 1;
+#endif
+#ifndef _WIN32
+        DIR *d;
+        struct dirent *dir;
+        d = opendir(vmPath);
+        if (d) {
+            while ((dir = readdir(d)) != NULL) {
+                if(dir->d_name[0]=='.')
+                    continue;
+                else if(strstr(dir->d_name, ".vm")){
+                    char absPath[256*2]="";
+                    strcat(absPath, vmPath);
+                    strcat(absPath, "/");
+                    strcat(absPath, dir->d_name);
+                    printf("Reading %s\n",  dir->d_name);
+                    file(absPath);
+                }
+            }
+            closedir(d);
+        }
+#endif
+  }
+}
 
-    // __ COMPUTE __
+int file(const char*const vmPath){
     char rline[MAX_RLINE_LEN];
     FILE *const readf = fopen (vmPath, "r");
     if (!readf)
@@ -28,12 +61,11 @@ main (int argc, char *argv[])
 
     char asmPath[MAX_RLINE_LEN];
     strcpy (asmPath, vmPath);
-    for (int i = 0; i < MAX_RLINE_LEN; i++)
+    for (int i = strlen(vmPath)-1; i > 0; i--)
         {
             if (asmPath[i] == '.')
                 {
                     strcpy (asmPath+i, ".asm");
-                    asmPath[i + (sizeof (".asm") / sizeof (char))] = '\0';
                     break;
                 }
         }
@@ -49,9 +81,9 @@ main (int argc, char *argv[])
     fputs("@256\nD=A\n@SP\nM=D\n", writef);
 
 
-    while (fgets(rline, MAX_RLINE_LEN, readf))
+    while (fgets(rline, MAX_RLINE_LEN, readf)!=NULL)
         {
-            register size_t startp = 0;
+            size_t startp = 0;
             switch (rline[startp])
                 {
                 case ' ': // commands or other stuff might be indented
@@ -140,8 +172,8 @@ main (int argc, char *argv[])
 exit:
     fclose (readf);
     fclose (writef);
+    return 0;
 }
-
 
 void wneg(FILE*const writef){
     fputs("\n//neg\n@SP\nA=M-1\nM=-M\n",writef);
@@ -158,18 +190,13 @@ void wadd(FILE*const writef){
 void wsub(FILE*const writef){
 
     fputs("\n//sub\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n" // a-b
-          "A=A-1\nM=D\n@SP\n" // pop to a
+          "A=A-1\nM=D\n@SP\nM=M-1\n" // pop to a
           , writef);
 
 }
 
 int wpop(char* const line, FILE* const writef){
     // NOTE line format: `pop segment x`
-    // comput *K = segptr+x
-    // compute stack[sp-1]
-    // copy to K
-    // stack--
-
     char seg[10], x[10];
     sscanf(line, "pop %s %s", seg, x);
 
@@ -189,7 +216,7 @@ int wpop(char* const line, FILE* const writef){
             fputs(wline,writef);
             return 0;
         case 's':
-            sprintf(wline, "@SP\nM=M-1\nA=M\nD=M\n@%d\nM=D\n", 16+atoi(x));
+            sprintf(wline, "@SP\nM=M-1\nA=M\nD=M\n@Xxx.%s\nM=D\n", x);
             fputs(wline, writef);
             return 0;
         case 'c': // impossibile; we discard the value
@@ -222,7 +249,7 @@ int wpush(char* const line, FILE* const writef){
             strcpy(seg, "@LCL");
             break;
         case 's': // static -> 16
-            sprintf(wline, "@%d\nD=M\n@0\nM=M+1\nA=M-1\nM=D\n", 16+atoi(k));
+            sprintf(wline, "@Xxx.%s\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", k);
             fputs(wline, writef);
             return 0;
         case 'c': // constant -> special case
@@ -335,7 +362,7 @@ void wand(FILE*const writef){
     /* j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",Ftag, Etag); //set FALSE and exit */
     /* j+=sprintf(buffer+j, "(%s)\n@SP\nM=M-1\n", Etag); // EXIT: POP B */
 
-    fputs("//and\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D&M\nA=A-1\nM=D\n", writef);
+    fputs("\n//and\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D&M\nA=A-1\nM=D\n", writef);
 
 }
 
@@ -410,15 +437,15 @@ wfunctionreturn ( FILE *const writef)
 {
     // NOTE line format: `return`
     fputs("\n//return \n"
-          "//FRAME=LCL\n@LCL\nD=M\n@FRAME\nM=D\n" /* FRAME=LCL */
-          "//RET=*(FRAME-5)\n@FRAME\nD=M\n@5\nD=D-A\nA=D\nD=M\n@RET\nM=D\n" /* RET=*(FRAME-5) */
+          "//FRAME=LCL\n@LCL\nD=M\n@R13\nM=D\n" /* FRAME=LCL */
+          "//RET=*(FRAME-5)\n@R13\nD=M\n@5\nD=D-A\nA=D\nD=M\n@R14\nM=D\n" /* RET=*(FRAME-5) */
           "//Arg[0]=reval\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n" /* Copy return val to arg[0] ; */
           "//SP=ARG+1\n@ARG\nD=M+1\n@SP\nM=D\n" // SP=ARG+1 // restore sp
-          "//that\n@FRAME\nA=M-1\nD=M\n@THAT\nM=D\n" // restore that
-          "//this\n@FRAME\nD=M\n@2\nA=D-A\nD=M\n@THIS\nM=D\n" // restore this
-          "//arg\n@FRAME\nD=M\n@3\nA=D-A\nD=M\n@ARG\nM=D\n" // restore arg
-          "//lcl\n@FRAME\nD=M\n@4\nA=D-A\nD=M\n@LCL\nM=D\n" // restore lcl
-          "//return\n@RET\nA=M\n0;JMP\n"
+          "//that\n@R13\nA=M-1\nD=M\n@THAT\nM=D\n" // restore that
+          "//this\n@R13\nD=M\n@2\nA=D-A\nD=M\n@THIS\nM=D\n" // restore this
+          "//arg\n@R13\nD=M\n@3\nA=D-A\nD=M\n@ARG\nM=D\n" // restore arg
+          "//lcl\n@R13\nD=M\n@4\nA=D-A\nD=M\n@LCL\nM=D\n" // restore lcl
+          "//return\n@R14\nA=M\n0;JMP\n"
           ,writef);
 
 }
@@ -443,7 +470,7 @@ wfunctioncall (char *const line, FILE *const writef)
     size_t j = 0;
     j+=sprintf(wline+j, "\n//call %s %s\n", fname, argc);
 
-#define PUSH_A "D=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"
+#define PUSH_A "D=A\n@SP\nM=M+1\nA=M-1\nM=D\n"
 
     // push TAG
     j+=sprintf(wline+j, "@%s\n" PUSH_A, TAG);
