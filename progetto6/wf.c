@@ -1,9 +1,9 @@
 #include "wf.h"
 #include "shared.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdbool.h>
 
 void
 wneg (FILE *const writef)
@@ -16,7 +16,7 @@ wadd (FILE *const writef)
 {
     // literally the same as wsub
     fputs ("\n//add\n@SP\nA=M-1\nD=M\nA=A-1\nM=D+M\n" // a+b
-           "@SP\nM=M-1\n"                        // pop to a
+           "@SP\nM=M-1\n"                             // pop to a
            ,
            writef);
 }
@@ -102,7 +102,7 @@ wpop (char *const line, FILE *const writef)
     sprintf (wline,
              "@%s\nD=A\n%s\nM=M+D\n@SP\nM=M-1\nA=M\nD=M\n%s\nA=M\nM=D\n@%s\nD=A\n%s\nM=M-D\n", x,
              seg, seg, x, seg);
-    fputs(wline, writef);
+    fputs (wline, writef);
     return 0;
 }
 
@@ -341,25 +341,28 @@ wfunctionreturn (FILE *const writef)
 {
     // NOTE line format: `return`
     static bool written = false;
-    if(!written)
-    {
-        fputs (
-            "\n//return subroutine \n"
-            "($return$)" // tag to jmp to
-            "//FRAME=LCL\n@LCL\nD=M\n@R13\nM=D\n"                           /* FRAME=LCL */
-            "//RET=*(FRAME-5)\n@R13\nD=M\n@5\nD=D-A\nA=D\nD=M\n@R14\nM=D\n" /* RET=*(FRAME-5) */
-            "//Arg[0]=reval\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n" /* Copy return val to arg[0] ; */
-            "//SP=ARG+1\n@ARG\nD=M+1\n@SP\nM=D\n"                    // SP=ARG+1 // restore sp
-            "//that\n@R13\nA=M-1\nD=M\n@THAT\nM=D\n"                 // restore that
-            "//this\n@R13\nD=M\n@2\nA=D-A\nD=M\n@THIS\nM=D\n"        // restore this
-            "//arg\n@R13\nD=M\n@3\nA=D-A\nD=M\n@ARG\nM=D\n"          // restore arg
-            "//lcl\n@R13\nD=M\n@4\nA=D-A\nD=M\n@LCL\nM=D\n"          // restore lcl
-            "//return\n@R14\nA=M\n0;JMP\n",
-            writef);
-        written = true;
-    }else{
-        fputs("@$return$\n0;JMP\n", writef);
-    }
+    if (!written)
+        {
+            fputs (
+                "\n//return subroutine \n"
+                "($return$)"                                                    // tag to jmp to
+                "//FRAME=LCL\n@LCL\nD=M\n@R13\nM=D\n"                           /* FRAME=LCL */
+                "//RET=*(FRAME-5)\n@R13\nD=M\n@5\nD=D-A\nA=D\nD=M\n@R14\nM=D\n" /* RET=*(FRAME-5) */
+                "//Arg[0]=reval\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n" /* Copy return val to
+                                                                            arg[0] ; */
+                "//SP=ARG+1\n@ARG\nD=M+1\n@SP\nM=D\n"                    // SP=ARG+1 // restore sp
+                "//that\n@R13\nA=M-1\nD=M\n@THAT\nM=D\n"                 // restore that
+                "//this\n@R13\nD=M\n@2\nA=D-A\nD=M\n@THIS\nM=D\n"        // restore this
+                "//arg\n@R13\nD=M\n@3\nA=D-A\nD=M\n@ARG\nM=D\n"          // restore arg
+                "//lcl\n@R13\nD=M\n@4\nA=D-A\nD=M\n@LCL\nM=D\n"          // restore lcl
+                "//return\n@R14\nA=M\n0;JMP\n",
+                writef);
+            written = true;
+        }
+    else
+        {
+            fputs ("@$return$\n0;JMP\n", writef);
+        }
 }
 
 void
@@ -369,44 +372,61 @@ wfunctioncall (char *const line, FILE *const writef)
     // To do this we'll push a TAG:
     // @TAG, D=A, @0, A=M, M=D, @0, M=M+1
 
-    // get TAG
+    static bool written = 0;
     static size_t timesCalled = 0; // src for TAG gen
-    char TAG[10] = "C";            // log(32k) ~ 5
-    sprintf (TAG + 1, "%lu", timesCalled);
-
-    // get fname
+    char TAG[10] = "$C";           // log(32k) ~ 5
     char fname[MAX_RLINE_LEN - 20], argc[10];
-    sscanf (line, " call %s %s", fname, argc);
-    // comment
     char wline[MAX_RLINE_LEN * 5];
     size_t j = 0;
+
+
+    // get TAG
+    sprintf (TAG + 2, "%lu", timesCalled);
+
+    // get fname
+    sscanf (line, " call %s %s", fname, argc);
+
+    // comment
     j += sprintf (wline + j, "\n//call %s %s\n", fname, argc);
 
 #define PUSH_A "D=A\n@SP\nM=M+1\nA=M-1\nM=D\n"
 
     // push TAG
     j += sprintf (wline + j, "@%s\n" PUSH_A, TAG);
-    // push LCL
-    j += sprintf (wline + j, "@LCL\nA=M\n" PUSH_A);
-    // push ARG
-    j += sprintf (wline + j, "@ARG\nA=M\n" PUSH_A);
-    // THIS
-    j += sprintf (wline + j, "@THIS\nA=M\n" PUSH_A);
-    // push THAT
-    j += sprintf (wline + j, "@THAT\nA=M\n" PUSH_A);
-    // reposition ARG
-    // ARG = sp - argc - 5;
-    j += sprintf (wline + j, "@SP\nD=M\n@%s\nD=D-A\n@5\nD=D-A\n@ARG\nM=D\n", argc);
-    // LCL = SP
-    j += sprintf (wline + j, "@SP\nD=M\n@LCL\nM=D\n");
 
-    // JMP to function
-    j += sprintf (wline + j, "@%s\n0;JMP\n", fname);
+    // constexpr from here
+    if(!written){
+        // Subroutine entrypoint
+        j+= sprintf (wline + j, "($CALL$)\n");
+        // push LCL
+        j += sprintf (wline + j, "@LCL\nA=M\n" PUSH_A);
+        // push ARG
+        j += sprintf (wline + j, "@ARG\nA=M\n" PUSH_A);
+        // THIS
+        j += sprintf (wline + j, "@THIS\nA=M\n" PUSH_A);
+        // push THAT
+        j += sprintf (wline + j, "@THAT\nA=M\n" PUSH_A);
+        // reposition ARG
+        // ARG = sp - argc - 5;
+        j += sprintf (wline + j, "@SP\nD=M\n@%s\nD=D-A\n@5\nD=D-A\n@ARG\nM=D\n", argc);
+        // LCL = SP
+        j += sprintf (wline + j, "@SP\nD=M\n@LCL\nM=D\n");
+        // JMP to function
+        j += sprintf (wline + j, "@%s\n0;JMP\n", fname);
+        // Subroutine exit
+        j+=sprintf(wline+j, "@R15\nA=M\n0;JMP\n");
+        written = true;
+    }else{
+        // Mem return and jump to subroutine
+        j+=sprintf(wline+j, "@$%s\nD=A\n@R15\nM=D\n($CALL$)\n0;JMP\n", TAG);
+        j+=sprintf(wline+j, "($%s)\n", TAG); //subroutine return point
+    }
 
     // set return tag
     j += sprintf (wline + j, "(%s)\n", TAG);
     fputs (wline, writef);
     timesCalled++;
+
 #ifdef DEBUG
     printf ("Info(return) j:%lu\t/%lu\n", j, sizeof (wline));
 #endif
