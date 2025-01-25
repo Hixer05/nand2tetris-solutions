@@ -23,11 +23,11 @@ void wsub(FILE*const writef){
 
 int wpop(char* const line, FILE* const writef){
     // NOTE line format: `pop segment x`
-    char seg[10], x[10];
+    char seg[20], x[10];
     sscanf(line, " pop %s %s", seg, x);
 
     //comment
-    char wline[MAX_RLINE_LEN*2]="";
+    char wline[MAX_RLINE_LEN*5]="";
     sprintf(wline, "\n//pop %s %s\n", seg, x);
     fputs(wline, writef);
     strcpy(wline, "");
@@ -83,12 +83,11 @@ int wpop(char* const line, FILE* const writef){
 
 int wpush(char* const line, FILE* const writef){
     //NOTE line format: `push segment k`
-    char seg[10];
-    char k[10];
+    char seg[20], k[10];
     sscanf(line, " push %s %s", seg, k);
 
     //comment
-    char wline[MAX_RLINE_LEN] = "";
+    char wline[MAX_RLINE_LEN*5] = "";
     sprintf(wline, "\n//push %s %s\n", seg, k);
     fputs(wline, writef);
     strcpy(wline, "");
@@ -122,10 +121,13 @@ int wpush(char* const line, FILE* const writef){
                 strcpy(seg, "@THAT");
                 break;
             }
+            printf("Error: No temp, that, or this.\n%s\n", line);
             return -1;
         case 'p':
-            if(!(strstr(k, "0")||strstr(k, "1")))
+            if(!(strstr(k, "0")||strstr(k, "1"))){
+                printf("Error: Pointer access eithe 0 or 1\n%s\n", line);
                 return -1;
+            }
             sprintf(wline, "@THIS\nA=A+%s\nD=M\n@SP\nM=M+1\nA=M\nM=D\n", k);
             return 0;
         case 'c': // constant -> special case
@@ -133,6 +135,7 @@ int wpush(char* const line, FILE* const writef){
             fputs(wline, writef);
             return 0;
         default:
+            printf("Error: default exit.\n");
             return -1;
     }
     j+=sprintf(wline+j, "%s\nD=M\n@%s\nA=D+A\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", seg, k);
@@ -143,7 +146,7 @@ int wpush(char* const line, FILE* const writef){
 void wgoto(char*const line, FILE*const writef){
     //NOTE `goto L`
     char label[60];
-    char buffer[MAX_RLINE_LEN];
+    char buffer[MAX_RLINE_LEN*3];
     size_t j = 0;
     sscanf(line, " goto %s ", label);
     j+=sprintf(buffer+j, "\n//goto\n@%s\n0;JMP\n", label);
@@ -156,7 +159,7 @@ void wlt(FILE*const writef){
     // a-b<0?T:F
     // then we pop b and overwrite on a
     static size_t timesCalled = 0;
-    char Ttag[7] = "L", Etag[7]="l"; // 2^15 = 32k ; log(32k) ~ 5
+    char Ttag[10] = "L", Etag[10]="l"; // 2^15 = 32k ; log(32k) ~ 5
     sprintf(Ttag+1, "%lu", timesCalled++); // if Less then jump to TAG
     strcpy(Etag+1, Ttag+1);
     char buffer[MAX_RLINE_LEN*5];
@@ -167,13 +170,16 @@ void wlt(FILE*const writef){
     j+=sprintf(buffer+j, "//then\n(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag);
     j+=sprintf(buffer+j, "@SP\nM=M-1\n"); // pop b
     fputs(buffer, writef);
+    #ifdef DEBUG
+    printf("Info(wlt) j:%lu\t/%lu\n", j, sizeof(buffer));
+    #endif
 }
 
 void weq(FILE*const writef){
     // NOTE literally the same as wlt
     // a-b=0?T:F
     static size_t timesCalled = 0;
-    char Ttag[7] = "E", Etag[7]="e"; // 2^15 = 32k ; log(32k) ~ 5
+    char Ttag[10] = "E", Etag[10]="e"; // 2^15 = 32k ; log(32k) ~ 5
     sprintf(Ttag+1, "%lu", timesCalled++); // if Less then jump to TAG
     strcpy(Etag+1, Ttag+1);
     char buffer[MAX_RLINE_LEN*5];
@@ -184,13 +190,16 @@ void weq(FILE*const writef){
     j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag); //then
     j+=sprintf(buffer+j, "@SP\nM=M-1\n"); // pop b
     fputs(buffer, writef);
+    #ifdef DEBUG
+    printf("Info(weq) j:%lu\t/%lu\n", j, sizeof(buffer));
+    #endif
 }
 
 void wgt(FILE*const writef){
      // NOTE literally the same as wlt
     // a-b>0?T:F
     static size_t timesCalled = 0;
-    char Ttag[7] = "G", Etag[7]="g"; // 2^15 = 32k ; log(32k) ~ 5
+    char Ttag[10] = "G", Etag[10]="g"; // 2^15 = 32k ; log(32k) ~ 5
     sprintf(Ttag+1, "%lu", timesCalled++); // if Less then jump to TAG
     strcpy(Etag+1, Ttag+1);
     char buffer[MAX_RLINE_LEN*5];
@@ -201,7 +210,10 @@ void wgt(FILE*const writef){
     j+=sprintf(buffer+j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag); //then
     j+=sprintf(buffer+j, "@SP\nM=M-1\n"); // pop b
     fputs(buffer, writef);
-}
+    #ifdef DEBUG
+    printf("Info(wgt) j:%lu\t/%lu\n", j, sizeof(buffer));
+    #endif
+    }
 
 void wnot(FILE*const writef){
     fputs("\n//not\n@SP\nA=M-1\nM=!M\n", writef);
@@ -227,7 +239,7 @@ void wifgoto(char*const line, FILE*const writef){
     // NOTE line format: `if-goto L`
     // check stack if bool true (-1)
     // or false(0)
-    char label[10];
+    char label[60];
     sscanf(line, " if-goto %s ", label);
     fputs("\n//ifgoto\n@SP\nM=M-1\nA=M\nD=M\n@", writef); // if-goto also pops
     fputs(label, writef);
@@ -243,7 +255,7 @@ int wfunctiondecl (char *const line, FILE *const writef)
     int locc;
     sscanf(line, " function %s %d", fname, &locc);
 
-    char wline[MAX_RLINE_LEN];
+    char wline[MAX_RLINE_LEN*5];
     sprintf(wline, "\n//fun %s %d\n", fname, locc);
     fputs(wline,writef);
 
@@ -287,7 +299,7 @@ wfunctioncall (char *const line, FILE *const writef)
 
     // get TAG
     static size_t timesCalled = 0; // src for TAG gen
-    char TAG[7] = "C"; // log(32k) ~ 5
+    char TAG[10] = "C"; // log(32k) ~ 5
     sprintf(TAG+1, "%lu", timesCalled);
 
     // get fname
@@ -323,5 +335,7 @@ wfunctioncall (char *const line, FILE *const writef)
     j+=sprintf(wline+j, "(%s)\n", TAG);
     fputs(wline, writef);
     timesCalled++;
-}
-
+    #ifdef DEBUG
+    printf("Info(return) j:%lu\t/%lu\n", j, sizeof(wline));
+    #endif
+    }

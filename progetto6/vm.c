@@ -22,18 +22,18 @@ int
 main (int argc, char *argv[])
 {
     /* const char *const vmPath = argc >= 2 ? argv[1] : NULL; */
-    char vmPath[256];
-    if(argc<2)
-    {
-        printf ("VMtranslator file.vm\nOr...\nVmtranslator dir\n");
-        return 1;
-    }
+    if (argc < 2)
+        {
+            printf ("VMtranslator file.vm\nOr...\nVmtranslator dir\n");
+            return 1;
+        }
 
-    char asmPath[256];
+    char vmPath[256];
+    char asmPath[256 + 4];
     FILE *writef;
     int exit_code;
 
-    strcpy(vmPath, argv[1]);
+    strcpy (vmPath, argv[1]);
     strcpy (asmPath, vmPath);
 
     if (strstr (vmPath, ".vm"))
@@ -61,18 +61,20 @@ main (int argc, char *argv[])
 
             DIR *d;
             struct dirent *dir;
+            char file_list[256][256 * 2 + 1];
+            int flsize = 0;
 
-            strcat (asmPath, ".vm");
+            strcat (asmPath, ".asm");
             // init
             writef = fopen (asmPath, "w");
             if (!writef)
                 {
-                    printf ("Error opening %s\n", asmPath);
+                    printf ("Error writing %s\n", asmPath);
                     return -1;
                 }
 
-            wfunctioncall ("call Sys.init 0\n", writef);
             fputs ("@256\nD=A\n@SP\nM=D\n\n", writef);
+            wfunctioncall ("call Sys.init 0\n", writef);
 
             d = opendir (vmPath);
             exit_code = 0;
@@ -82,33 +84,46 @@ main (int argc, char *argv[])
                     return -1;
                 }
 
-            while ((dir = readdir (d)) != NULL)
+            for (flsize = 0; (dir = readdir (d)) != NULL; flsize++)
                 {
                     if (dir->d_name[0] == '.')
-                        continue;
+                        {
+                            flsize--;
+                            continue;
+                        }
                     if (strstr (dir->d_name, ".vm"))
                         {
-                            char buff[256 * 2], absVmPath[256 * 2];
-
-                            strcpy (absVmPath, vmPath);
-                            strcat (absVmPath, "/");
-                            strcat (absVmPath, dir->d_name);
-
-                            printf ("Reading %s\n", absVmPath);
-                            sprintf (buff, "\n\n//---%s---\n", dir->d_name);
-                            fputs (buff, writef);
-                            fclose (writef);
-
-                            exit_code = parse (absVmPath, asmPath);
-                            if (exit_code)
-                                {
-                                    printf ("Error in file %s\n", dir->d_name);
-                                    goto mainexit;
-                                }
+                            char relName[256 * 2 + 1];
+                            strcpy (relName, vmPath);
+                            strcat (relName, "/");
+                            strcat (relName, dir->d_name);
+                            strcpy (file_list[flsize], relName);
                         }
                 }
-        mainexit:
+
             closedir (d);
-            return exit_code;
+
+            for (int i = 0; i < flsize; i++)
+                {
+                    char buff[256 * 3];
+
+                    printf ("Reading %s\n", file_list[i]);
+                    sprintf (buff, "\n\n//---%s---\n", file_list[i]);
+                    fputs (buff, writef);
+                    fclose (writef);
+
+                    exit_code = parse (file_list[i], asmPath);
+                    if (exit_code)
+                        {
+                            printf ("Error in file %s\n", dir->d_name);
+
+                            goto mainexit;
+                        }
+                }
         }
+mainexit:
+    if(exit_code==0){
+        printf("Results written to %s.\n", asmPath);
+    }
+    return exit_code;
 }
