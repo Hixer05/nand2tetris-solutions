@@ -56,9 +56,8 @@ wpop (char *const line, FILE *const writef)
             if (seg[1] == 'e') // temp
                 {
                     sprintf (wline,
-                             "@%s\nD=A\n@5\nD=D+A\n@15\nM=D\n" // store (5 + x) in tmp var
-                             "@SP\nM=M-1\nA=M\nD=M\n@15\nA=M\nM=D\n",
-                             x);
+                             "@SP\nM=M-1\nA=M\nD=M\n@%d\nM=D\n",
+                             atoi(x)+5);
                     fputs (wline, writef);
                     return 0;
                 }
@@ -177,7 +176,7 @@ wpush (char *const line, FILE *const writef)
                 fputs("@SP\nM=M+1\nA=M-1\nM=0\n", writef);
                 return 0;
             }
-            sprintf (wline, "@%s\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", k);
+            sprintf (wline, "@%s\nD=A\n@SP\nM=M+1\nA=M-1\nM=D\n", k);
             fputs (wline, writef);
             return 0;
         default:
