@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 void
 wneg (FILE *const writef)
@@ -55,9 +55,7 @@ wpop (char *const line, FILE *const writef)
         case 't':              // pointer +0/+1
             if (seg[1] == 'e') // temp
                 {
-                    sprintf (wline,
-                             "@SP\nM=M-1\nA=M\nD=M\n@%d\nM=D\n",
-                             atoi(x)+5);
+                    sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@%d\nM=D\n", atoi (x) + 5);
                     fputs (wline, writef);
                     return 0;
                 }
@@ -172,10 +170,11 @@ wpush (char *const line, FILE *const writef)
                     return -1;
                 }
         case 'c': // constant -> special case
-            if(atoi(k)==0){
-                fputs("@SP\nM=M+1\nA=M-1\nM=0\n", writef);
-                return 0;
-            }
+            if (atoi (k) == 0)
+                {
+                    fputs ("@SP\nM=M+1\nA=M-1\nM=0\n", writef);
+                    return 0;
+                }
             sprintf (wline, "@%s\nD=A\n@SP\nM=M+1\nA=M-1\nM=D\n", k);
             fputs (wline, writef);
             return 0;
@@ -231,22 +230,37 @@ weq (FILE *const writef)
 {
     // NOTE literally the same as wlt
     // a-b=0?T:F
-    static size_t timesCalled = 0;
-    char Ttag[10] = "E", Etag[10] = "e";      // 2^15 = 32k ; log(32k) ~ 5
-    sprintf (Ttag + 1, "%lu", timesCalled++); // if Less then jump to TAG
-    strcpy (Etag + 1, Ttag + 1);
-    char buffer[MAX_RLINE_LEN * 5];
-    size_t j = 0;
-    j += sprintf (buffer + j,
-                  "\n//compute eq\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n"); // compute a-b
-    j += sprintf (buffer + j, "@%s\nD;JEQ\n", Ttag);                         // if a-b=0 goto TTAG
-    j += sprintf (buffer + j, "@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG
-    j += sprintf (buffer + j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag); // then
-    j += sprintf (buffer + j, "@SP\nM=M-1\n");                                      // pop b
-    fputs (buffer, writef);
-#ifdef DEBUG
-    printf ("Info(weq) j:%lu\t/%lu\n", j, sizeof (buffer));
-#endif
+    static int timesCalled = 0;
+    char wline[MAX_RLINE_LEN * 5];
+    #ifdef DEBUG
+    fputs ("\n//eq\n", writef);
+    #endif
+
+    if (timesCalled == 0)
+        {
+            sprintf (wline, "@$EQ%d\nD=A\n@R15\nM=D\n", timesCalled);
+            fputs (wline, writef);
+            fputs ("($EQ$)\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
+                   "@$EQT\nD;JEQ\n"                                 // if eq goto EQTrue
+                   "@SP\nA=M-1\nM=0\n"                              // else a=0
+                   "@$EQE\n0;JMP\n"                                 // and exit
+                   "($EQT)\n@SP\nA=M-1\nM=-1\n"                     // EQT
+                   "($EQE)\n"                                       // exit
+                   "@R15\nA=M\n0;JMP\n"                             // exit subr
+                   ,
+                   writef);
+            sprintf (wline, "($EQ%d)\n", timesCalled);
+            fputs (wline, writef);
+        }
+    else
+        {
+            sprintf (wline,
+                     "@$EQ%d\nD=A\n@R15\nM=D\n"
+                     "@$EQ$\n0;JMP\n($EQ%d)\n",
+                     timesCalled, timesCalled);
+            fputs (wline, writef);
+        }
+    timesCalled++;
 }
 
 void
@@ -349,7 +363,7 @@ wfunctionreturn (FILE *const writef)
         {
             fputs (
                 "\n//return subroutine \n"
-                "($return$)\n"                                                    // tag to jmp to
+                "($return$)\n"                                                  // tag to jmp to
                 "//FRAME=LCL\n@LCL\nD=M\n@R13\nM=D\n"                           /* FRAME=LCL */
                 "//RET=*(FRAME-5)\n@R13\nD=M\n@5\nD=D-A\nA=D\nD=M\n@R14\nM=D\n" /* RET=*(FRAME-5) */
                 "//Arg[0]=reval\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n" /* Copy return val to
@@ -383,7 +397,6 @@ wfunctioncall (char *const line, FILE *const writef)
     char wline[MAX_RLINE_LEN * 5];
     size_t j = 0;
 
-
     // get TAG
     sprintf (TAG + 2, "%lu", timesCalled);
     // get fname
@@ -397,28 +410,31 @@ wfunctioncall (char *const line, FILE *const writef)
     j += sprintf (wline + j, "@%s\n" PUSH_A, TAG);
 
     // constexpr from here
-    if(!written1){
-        // to exit
-        j+=sprintf(wline+j, "@$%s\nD=A\n@R15\nM=D\n", TAG);
-        // Subroutine entrypoint
-        j+= sprintf (wline + j, "($CALL$)\n");
-        // push LCL
-        j += sprintf (wline + j, "@LCL\nA=M\n" PUSH_A);
-        // push ARG
-        j += sprintf (wline + j, "@ARG\nA=M\n" PUSH_A);
-        // THIS
-        j += sprintf (wline + j, "@THIS\nA=M\n" PUSH_A);
-        // push THAT
-        j += sprintf (wline + j, "@THAT\nA=M\n" PUSH_A);
-        // Subroutine exit
-        j+=sprintf(wline+j, "@R15\nA=M\n0;JMP\n");
-        j+=sprintf(wline+j, "($%s)\n", TAG); //subroutine return point
-        written1 = true;
-    }else{
-        // Mem return and jump to subroutine
-        j+=sprintf(wline+j, "@$%s\nD=A\n@R15\nM=D\n($CALL$)\n0;JMP\n", TAG);
-        j+=sprintf(wline+j, "($%s)\n", TAG); //subroutine return point
-    }
+    if (!written1)
+        {
+            // to exit
+            j += sprintf (wline + j, "@$%s\nD=A\n@R15\nM=D\n", TAG);
+            // Subroutine entrypoint
+            j += sprintf (wline + j, "($CALL$)\n");
+            // push LCL
+            j += sprintf (wline + j, "@LCL\nA=M\n" PUSH_A);
+            // push ARG
+            j += sprintf (wline + j, "@ARG\nA=M\n" PUSH_A);
+            // THIS
+            j += sprintf (wline + j, "@THIS\nA=M\n" PUSH_A);
+            // push THAT
+            j += sprintf (wline + j, "@THAT\nA=M\n" PUSH_A);
+            // Subroutine exit
+            j += sprintf (wline + j, "@R15\nA=M\n0;JMP\n");
+            j += sprintf (wline + j, "($%s)\n", TAG); // subroutine return point
+            written1 = true;
+        }
+    else
+        {
+            // Mem return and jump to subroutine
+            j += sprintf (wline + j, "@$%s\nD=A\n@R15\nM=D\n($CALL$)\n0;JMP\n", TAG);
+            j += sprintf (wline + j, "($%s)\n", TAG); // subroutine return point
+        }
 
     // reposition ARG
     // ARG = sp - argc - 5;

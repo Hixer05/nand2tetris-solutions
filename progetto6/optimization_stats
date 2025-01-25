@@ -5,3 +5,4 @@
 42822 os.asm // push const 0
 41373 os.asm // pop temp
 40341 os.asm // push const
+39986 os.asm // eq 
