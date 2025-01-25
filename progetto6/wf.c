@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 void
 wneg (FILE *const writef)
@@ -100,7 +101,7 @@ wpop (char *const line, FILE *const writef)
             return -1;
         }
     sprintf (wline,
-             "@%s\nD=A\n%s\nM=M+D\n@SP\nM=M-1\nA=M\nD=M\n%s\nA=M\nM=D\n@%s\nD=A\n%s\nM=M-D\n", x,
+             "@%s\nD=A\n%s\nM=D+M\n@SP\nM=M-1\nA=M\nD=M\n%s\nA=M\nM=D\n@%s\nD=A\n%s\nM=M-D\n", x,
              seg, seg, x, seg);
     fputs (wline, writef);
     return 0;
@@ -172,6 +173,10 @@ wpush (char *const line, FILE *const writef)
                     return -1;
                 }
         case 'c': // constant -> special case
+            if(atoi(k)==0){
+                fputs("@SP\nM=M+1\nA=M-1\nM=0\n", writef);
+                return 0;
+            }
             sprintf (wline, "@%s\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", k);
             fputs (wline, writef);
             return 0;
@@ -345,7 +350,7 @@ wfunctionreturn (FILE *const writef)
         {
             fputs (
                 "\n//return subroutine \n"
-                "($return$)"                                                    // tag to jmp to
+                "($return$)\n"                                                    // tag to jmp to
                 "//FRAME=LCL\n@LCL\nD=M\n@R13\nM=D\n"                           /* FRAME=LCL */
                 "//RET=*(FRAME-5)\n@R13\nD=M\n@5\nD=D-A\nA=D\nD=M\n@R14\nM=D\n" /* RET=*(FRAME-5) */
                 "//Arg[0]=reval\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n" /* Copy return val to
