@@ -8,7 +8,7 @@
 #ifdef _WIN32
 #define WIN_WARN()                                                                                 \
     {                                                                                              \
-        printf ("VMtranslator file.vm\n Can translate only files on Windows.\n");                  \
+        printf ("VMtranslator file.vm\n Can translate single files only on Windows.\n");                  \
         return 1;                                                                                  \
     }
 #endif
@@ -84,13 +84,10 @@ main (int argc, char *argv[])
                     return -1;
                 }
 
-            for (flsize = 0; (dir = readdir (d)) != NULL; flsize++)
+            for (flsize = 0; (dir = readdir (d)) != NULL;)
                 {
                     if (dir->d_name[0] == '.')
-                        {
-                            flsize--;
                             continue;
-                        }
                     if (strstr (dir->d_name, ".vm"))
                         {
                             char relName[256 * 2 + 1];
@@ -98,6 +95,7 @@ main (int argc, char *argv[])
                             strcat (relName, "/");
                             strcat (relName, dir->d_name);
                             strcpy (file_list[flsize], relName);
+                            flsize++;
                         }
                 }
 
@@ -106,7 +104,6 @@ main (int argc, char *argv[])
             for (int i = 0; i < flsize; i++)
                 {
                     char buff[256 * 3];
-
                     printf ("Reading %s\n", file_list[i]);
                     sprintf (buff, "\n\n//---%s---\n", file_list[i]);
                     fputs (buff, writef);

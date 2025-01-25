@@ -2,6 +2,7 @@
 #include "wf.h"
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 
 int
 parse (const char *const vmPath, const char *const asmPath)
@@ -32,13 +33,13 @@ parse (const char *const vmPath, const char *const asmPath)
                 case '\r':
                 case '\n':
                 case '/':
-                    continue;
+                    break;
                 case 'a':
                     if (instr[1] == 'n')
                         wand (writef);
                     else
                         wadd (writef);
-                    continue;
+                    break;
                 case 'f': // function decl
                     if (wfunctiondecl (rline, writef))
                         {
@@ -46,31 +47,31 @@ parse (const char *const vmPath, const char *const asmPath)
                             exit_code += 1;
                             goto exit;
                         }
-                    continue;
+                    break;
                 case 'e':
                     weq (writef);
-                    continue;
+                    break;
                 case 'o':
                     wor (writef);
-                    continue;
+                    break;
                 case 'r':
                     wfunctionreturn (writef);
-                    continue;
+                    break;
                 case 's':
                     wsub (writef);
-                    continue;
+                    break;
                 case 'n':
                     if (instr[1] == 'e')
                         wneg (writef);
                     else
                         wnot (writef);
-                    continue;
+                    break;
                 case 'c': // function call
                     wfunctioncall (rline, writef);
-                    continue;
+                    break;
                 case 'i': // if-goto
                     wifgoto (rline, writef);
-                    continue;
+                    break;
                 case 'p':
                     if (instr[1] == 'o')
                         {
@@ -90,7 +91,7 @@ parse (const char *const vmPath, const char *const asmPath)
                                     goto exit;
                                 }
                         }
-                    continue;
+                    break;
                 case 'l':
                     if (instr[1] == 'a')
                         { // lable
@@ -100,13 +101,13 @@ parse (const char *const vmPath, const char *const asmPath)
                         {
                             wlt (writef);
                         }
-                    continue;
+                    break;
                 case 'g':
                     if (instr[1] == 't')
                         wgt (writef);
                     else
                         wgoto (rline, writef);
-                    continue;
+                    break;
                 default: // unrecog
 #ifndef DEBUG
                     printf ("Unrecognized synthax:\n%s", rline);
@@ -115,6 +116,7 @@ parse (const char *const vmPath, const char *const asmPath)
 #endif
                     break;
                 }
+            strcpy(instr, "");
         }
 exit:
     if (readf != NULL)
