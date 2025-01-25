@@ -20,5 +20,5 @@ void wgt(FILE*const writef);
 void wnot(FILE*const writef);
 void wand(FILE*const writef);
 void wor(FILE*const writef);
-
+int wmove(char*const line, FILE*const writef);
 #endif // WF_H_

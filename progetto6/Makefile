@@ -6,20 +6,20 @@
 
 CFLAG = -Wall -Werror -pedantic 
 DFLAG = -g -DDEBUG
-SCRF  = vm.c parse.c wf.c
+SCRF  = vm.c parse.c wf.c pretranslate.c
 ODIR  =
 BINN  = VMtranslator
 
-vm: vm.o parse.o wf.o
+vm: vm.o parse.o wf.o pretranslate.o
 	gcc $(CFLAG) *.o -o $(ODIR)$(BINN)
 
 debug: vmd.o
 	gcc $(CFLAG) $(DFLAG) *.o -o $(ODIR)$(BINN)
 
-vm.o: vm.c parse.c wf.c
+vm.o: vm.c parse.c wf.c pretranslate.c
 	gcc $(CFLAG) -c $(SCRF)
 
-vmd.o: vm.c parse.c wf.c
+vmd.o: vm.c parse.c wf.c pretranslate.c
 	gcc $(CFLAG) $(DFLAG) -c $(SCRF)
 
 clean:

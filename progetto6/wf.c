@@ -7,10 +7,137 @@
 #include <string.h>
 
 void
+getsegment (char *const segment)
+{
+    switch (segment[0])
+        {
+        case 'l':
+            strcpy (segment, "LCL");
+            break;
+        case 'a':
+            strcpy (segment, "ARG");
+            break;
+        case 'c':
+            strcpy (segment, "C");
+            break;
+        case 's':
+            // NOTE: !!if the vm ever uses an ASM VARIABLE THIS WILL BREAK!!
+            strcpy (segment, "16");
+        case 't':
+            if (segment[2] == 'i')
+                strcpy (segment, "THIS");
+            else if (segment[2] == 'a')
+                strcpy (segment, "THAT");
+            else if (segment[2] == 'm') // temp
+                strcpy (segment, "5");
+            break;
+        case 'p':
+            strcpy (segment, "3");
+            break;
+        default:
+            strcpy (segment, "E");
+            break;
+        }
+}
+
+int
+wmove (char *const line, FILE *const writef)
+{
+    char seg1[20], loc1[10], seg2[20], loc2[10];
+    char wline[MAX_RLINE_LEN * 2];
+    sscanf (line, " move %s %s %s %s ", seg1, loc1, seg2, loc2);
+    getsegment (seg1);
+    getsegment (seg2);
+    bool isTAL = false; // is T/A/L
+    switch (seg2[0])
+        {
+        case '5': // TEMP
+        case '3':
+        case '1':
+            isTAL = false;
+            break;
+        case 'T':
+        case 'A':
+        case 'L':
+            isTAL = true;
+            break;
+        default:
+            printf ("Error move seg2 %s \n%s\n", seg2, line);
+            return -1;
+        }
+    switch (seg1[0])
+        {
+        case 'C':
+            if (isTAL)
+                {
+                    sprintf (wline,
+                             "@%s\nD=M\n@%s\nD=D+A\n@R15\nM=D\n" // R15=SEG2+LOC2
+                             "@%d\nD=A\n@R15\nA=M\nM=D\n"        // store SEG1+LOC1 to R15
+                             ,
+                             seg2, loc2, atoi (loc1));
+                    fputs (wline, writef);
+                    return 0;
+                }
+            else
+                {
+                    sprintf (wline, "@%d\nD=A\n@%d\nM=D", atoi (seg1), atoi (loc2) + atoi (seg2));
+                    fputs (wline, writef);
+                    return 0;
+                }
+        case '5': // TEMP
+        case '3':
+        case '1':
+            if (isTAL)
+                {
+                    sprintf (wline,
+                             "@%s\nD=M\n@%s\nD=D+A\n@R15\nM=D\n" // R15=SEG2+LOC2
+                             "@%d\nD=M\n@R15\nA=M\nM=D\n"        // store SEG1+LOC1 to R15
+                             ,
+                             seg2, loc2, atoi (seg1) + atoi (loc1));
+                    fputs (wline, writef);
+                    return 0;
+                }
+            else
+                {
+                    sprintf (wline, "@%d\nD=M\n@%d\nM=D", atoi (loc1) + atoi (seg1),
+                             atoi (loc2) + atoi (seg2));
+                    fputs (wline, writef);
+                    return 0;
+                }
+            break;
+
+        case 'T':
+        case 'A':
+        case 'L':
+            if (isTAL)
+                {
+                    sprintf (wline,
+                             "@%s\nD=M\n@%s\nD=D+A\n@R15\nM=D\n" // R15=SEG2+LOC2
+                             "@%s\nD=M\n@%s\nA=D+A\nD=M\n@R15\nA=M\nM=D\n",
+                             seg2, loc2, seg1, loc1);
+                    fputs (wline, writef);
+                    return 0;
+                }
+            else
+                {
+                    sprintf (wline, "@%s\nD=M\n@%s\nA=D+A\nD=M\n@%d\nM=D", seg1, loc1,
+                             atoi (loc2) + atoi (seg2));
+                    fputs (wline, writef);
+                    return 0;
+                }
+            //
+            break;
+        default:
+            printf ("ERROR move seg1 %s \n%s\n", seg1, line);
+            return -1;
+        }
+}
+
+void
 wneg (FILE *const writef)
 {
 #ifdef DEBUG
-    fputs("\n//neg\n", writef);
+    fputs ("\n//neg\n", writef);
 #endif
     fputs ("@SP\nA=M-1\nM=-M\n", writef);
 }
@@ -19,20 +146,22 @@ void
 wadd (FILE *const writef)
 {
 #ifdef DEBUG
-    fputs("\n//add\n", writef);
+    fputs ("\n//add\n", writef);
 #endif
     fputs ("@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D+M\n" // a+b
-           ,writef);
+           ,
+           writef);
 }
 
 void
 wsub (FILE *const writef)
 {
 #ifdef DEBUG
-    fputs("\n//sub\n", writef);
+    fputs ("\n//sub\n", writef);
 #endif
     fputs ("@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=M+D\n" // -b; a+(-b) (in loc)
-           ,writef);
+           ,
+           writef);
 }
 
 int
@@ -212,9 +341,9 @@ wlt (FILE *const writef)
     //  then we pop b and overwrite on a
     static int timesCalled = 0;
     char wline[MAX_RLINE_LEN * 5];
-    #ifdef DEBUG
+#ifdef DEBUG
     fputs ("\n//lt\n", writef);
-    #endif
+#endif
 
     if (timesCalled == 0)
         {
@@ -250,9 +379,9 @@ weq (FILE *const writef)
     // a-b=0?T:F
     static int timesCalled = 0;
     char wline[MAX_RLINE_LEN * 5];
-    #ifdef DEBUG
+#ifdef DEBUG
     fputs ("\n//eq\n", writef);
-    #endif
+#endif
 
     if (timesCalled == 0)
         {
@@ -288,9 +417,9 @@ wgt (FILE *const writef)
     // a-b>0?T:F
     static int timesCalled = 0;
     char wline[MAX_RLINE_LEN * 5];
-    #ifdef DEBUG
+#ifdef DEBUG
     fputs ("\n//gt\n", writef);
-    #endif
+#endif
 
     if (timesCalled == 0)
         {
@@ -319,12 +448,11 @@ wgt (FILE *const writef)
     timesCalled++;
 }
 
-
 void
 wnot (FILE *const writef)
 {
 #ifdef DEBUG
-    fputs("\n//not\n", writef);
+    fputs ("\n//not\n", writef);
 #endif
     fputs ("@SP\nA=M-1\nM=!M\n", writef);
 }
@@ -333,7 +461,7 @@ void
 wand (FILE *const writef)
 {
 #ifdef DEBUG
-    fputs("\n//and\n", writef);
+    fputs ("\n//and\n", writef);
 #endif
     fputs ("@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D&M\n", writef);
 }
@@ -342,7 +470,7 @@ void
 wor (FILE *const writef)
 {
 #ifdef DEBUG
-    fputs("\n//or\n", writef);
+    fputs ("\n//or\n", writef);
 #endif
     fputs ("@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D|M\n", writef);
 }
@@ -356,7 +484,7 @@ wlabel (char *const line, FILE *const writef)
 #ifdef DEBUG
     fputs ("\n//label\n", writef);
 #endif
-    fputs("(", writef);
+    fputs ("(", writef);
     fputs (label, writef);
     fputs (")\n", writef);
 }
@@ -369,7 +497,7 @@ wifgoto (char *const line, FILE *const writef)
     char label[60];
     sscanf (line, " if-goto %s ", label);
 #ifdef DEBUG
-    fputs("\n//ifgoto\n", writef);
+    fputs ("\n//ifgoto\n", writef);
 #endif
     fputs ("@SP\nM=M-1\nA=M\nD=M\n@", writef); // if-goto also pops
     fputs (label, writef);

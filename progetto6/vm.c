@@ -2,13 +2,14 @@
 #include <dirent.h>
 #endif
 #include "parse.h"
+#include "pretranslate.h"
 #include "wf.h"
 #include <string.h>
 
 #ifdef _WIN32
 #define WIN_WARN()                                                                                 \
     {                                                                                              \
-        printf ("VMtranslator file.vm\n Can translate single files only on Windows.\n");                  \
+        printf ("VMtranslator file.vm\n Can translate single files only on Windows.\n");           \
         return 1;                                                                                  \
     }
 #endif
@@ -61,7 +62,7 @@ main (int argc, char *argv[])
 
             DIR *d;
             struct dirent *dir;
-            char file_list[256][256 * 2 + 1];
+            char file_list[256][256 * 2];
             int flsize = 0;
 
             strcat (asmPath, ".asm");
@@ -87,7 +88,9 @@ main (int argc, char *argv[])
             for (flsize = 0; (dir = readdir (d)) != NULL;)
                 {
                     if (dir->d_name[0] == '.')
-                            continue;
+                        continue;
+                    if (strstr (dir->d_name, ".pp.vm"))
+                        continue;
                     if (strstr (dir->d_name, ".vm"))
                         {
                             char relName[256 * 2 + 1];
@@ -101,6 +104,38 @@ main (int argc, char *argv[])
 
             closedir (d);
 
+            int pre_ec = pushpop (file_list, flsize);
+            if (pre_ec != 0)
+                {
+                    printf ("Error in pretranslate\n");
+                    fclose (writef);
+                    return -1;
+                }
+
+            d = opendir (vmPath);
+            flsize = 0;
+            if (!d)
+                {
+                    printf ("Failed to open dir %s\n", vmPath);
+                    return -1;
+                }
+
+            for (flsize = 0; (dir = readdir (d)) != NULL;)
+                {
+                    if (dir->d_name[0] == '.')
+                        continue;
+                    if (strstr (dir->d_name, ".pp.vm"))
+                        {
+                            char relName[256 * 2 + 1];
+                            strcpy (relName, vmPath);
+                            strcat (relName, "/");
+                            strcat (relName, dir->d_name);
+                            strcpy (file_list[flsize], relName);
+                            flsize++;
+                        }
+                }
+
+            closedir (d);
             for (int i = 0; i < flsize; i++)
                 {
                     char buff[256 * 3];
@@ -113,14 +148,14 @@ main (int argc, char *argv[])
                     if (exit_code)
                         {
                             printf ("Error in file %s\n", dir->d_name);
-
                             goto mainexit;
                         }
                 }
         }
 mainexit:
-    if(exit_code==0){
-        printf("Results written to %s.\n", asmPath);
-    }
+    if (exit_code == 0)
+        {
+            printf ("Results written to %s.\n", asmPath);
+        }
     return exit_code;
 }

@@ -108,6 +108,13 @@ parse (const char *const vmPath, const char *const asmPath)
                     else
                         wgoto (rline, writef);
                     break;
+                case 'm':
+                    if (wmove (rline, writef))
+                        {
+                            exit_code += 1;
+                            goto exit;
+                        }
+                    break;
                 default: // unrecog
 #ifndef DEBUG
                     printf ("Unrecognized synthax:\n%s", rline);
@@ -116,7 +123,7 @@ parse (const char *const vmPath, const char *const asmPath)
 #endif
                     break;
                 }
-            strcpy(instr, "");
+            strcpy (instr, "");
         }
 exit:
     if (readf != NULL)
