@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 void
 wneg (FILE *const writef)
@@ -339,18 +340,26 @@ void
 wfunctionreturn (FILE *const writef)
 {
     // NOTE line format: `return`
-    fputs (
-        "\n//return \n"
-        "//FRAME=LCL\n@LCL\nD=M\n@R13\nM=D\n"                           /* FRAME=LCL */
-        "//RET=*(FRAME-5)\n@R13\nD=M\n@5\nD=D-A\nA=D\nD=M\n@R14\nM=D\n" /* RET=*(FRAME-5) */
-        "//Arg[0]=reval\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n" /* Copy return val to arg[0] ; */
-        "//SP=ARG+1\n@ARG\nD=M+1\n@SP\nM=D\n"                    // SP=ARG+1 // restore sp
-        "//that\n@R13\nA=M-1\nD=M\n@THAT\nM=D\n"                 // restore that
-        "//this\n@R13\nD=M\n@2\nA=D-A\nD=M\n@THIS\nM=D\n"        // restore this
-        "//arg\n@R13\nD=M\n@3\nA=D-A\nD=M\n@ARG\nM=D\n"          // restore arg
-        "//lcl\n@R13\nD=M\n@4\nA=D-A\nD=M\n@LCL\nM=D\n"          // restore lcl
-        "//return\n@R14\nA=M\n0;JMP\n",
-        writef);
+    static bool written = false;
+    if(!written)
+    {
+        fputs (
+            "\n//return subroutine \n"
+            "($return$)" // tag to jmp to
+            "//FRAME=LCL\n@LCL\nD=M\n@R13\nM=D\n"                           /* FRAME=LCL */
+            "//RET=*(FRAME-5)\n@R13\nD=M\n@5\nD=D-A\nA=D\nD=M\n@R14\nM=D\n" /* RET=*(FRAME-5) */
+            "//Arg[0]=reval\n@SP\nM=M-1\nA=M\nD=M\n@ARG\nA=M\nM=D\n" /* Copy return val to arg[0] ; */
+            "//SP=ARG+1\n@ARG\nD=M+1\n@SP\nM=D\n"                    // SP=ARG+1 // restore sp
+            "//that\n@R13\nA=M-1\nD=M\n@THAT\nM=D\n"                 // restore that
+            "//this\n@R13\nD=M\n@2\nA=D-A\nD=M\n@THIS\nM=D\n"        // restore this
+            "//arg\n@R13\nD=M\n@3\nA=D-A\nD=M\n@ARG\nM=D\n"          // restore arg
+            "//lcl\n@R13\nD=M\n@4\nA=D-A\nD=M\n@LCL\nM=D\n"          // restore lcl
+            "//return\n@R14\nA=M\n0;JMP\n",
+            writef);
+        written = true;
+    }else{
+        fputs("@$return$\n0;JMP\n", writef);
+    }
 }
 
 void
