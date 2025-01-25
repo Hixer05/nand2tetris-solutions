@@ -1,3 +1,4 @@
 52881 os.asm // no opt
 49343 os.asm // return opt
 41227 os.asm // call opt
+44480 os.asm // FIXERR: call opt

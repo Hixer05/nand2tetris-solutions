@@ -372,7 +372,7 @@ wfunctioncall (char *const line, FILE *const writef)
     // To do this we'll push a TAG:
     // @TAG, D=A, @0, A=M, M=D, @0, M=M+1
 
-    static bool written = 0;
+    static bool written1 = 0;
     static size_t timesCalled = 0; // src for TAG gen
     char TAG[10] = "$C";           // log(32k) ~ 5
     char fname[MAX_RLINE_LEN - 20], argc[10];
@@ -382,10 +382,8 @@ wfunctioncall (char *const line, FILE *const writef)
 
     // get TAG
     sprintf (TAG + 2, "%lu", timesCalled);
-
     // get fname
     sscanf (line, " call %s %s", fname, argc);
-
     // comment
     j += sprintf (wline + j, "\n//call %s %s\n", fname, argc);
 
@@ -395,7 +393,9 @@ wfunctioncall (char *const line, FILE *const writef)
     j += sprintf (wline + j, "@%s\n" PUSH_A, TAG);
 
     // constexpr from here
-    if(!written){
+    if(!written1){
+        // to exit
+        j+=sprintf(wline+j, "@$%s\nD=A\n@R15\nM=D\n", TAG);
         // Subroutine entrypoint
         j+= sprintf (wline + j, "($CALL$)\n");
         // push LCL
@@ -406,21 +406,23 @@ wfunctioncall (char *const line, FILE *const writef)
         j += sprintf (wline + j, "@THIS\nA=M\n" PUSH_A);
         // push THAT
         j += sprintf (wline + j, "@THAT\nA=M\n" PUSH_A);
-        // reposition ARG
-        // ARG = sp - argc - 5;
-        j += sprintf (wline + j, "@SP\nD=M\n@%s\nD=D-A\n@5\nD=D-A\n@ARG\nM=D\n", argc);
-        // LCL = SP
-        j += sprintf (wline + j, "@SP\nD=M\n@LCL\nM=D\n");
-        // JMP to function
-        j += sprintf (wline + j, "@%s\n0;JMP\n", fname);
         // Subroutine exit
         j+=sprintf(wline+j, "@R15\nA=M\n0;JMP\n");
-        written = true;
+        j+=sprintf(wline+j, "($%s)\n", TAG); //subroutine return point
+        written1 = true;
     }else{
         // Mem return and jump to subroutine
         j+=sprintf(wline+j, "@$%s\nD=A\n@R15\nM=D\n($CALL$)\n0;JMP\n", TAG);
         j+=sprintf(wline+j, "($%s)\n", TAG); //subroutine return point
     }
+
+    // reposition ARG
+    // ARG = sp - argc - 5;
+    j += sprintf (wline + j, "@SP\nD=M\n@%s\nD=D-A\n@5\nD=D-A\n@ARG\nM=D\n", argc);
+    // LCL = SP
+    j += sprintf (wline + j, "@SP\nD=M\n@LCL\nM=D\n");
+    // JMP to function
+    j += sprintf (wline + j, "@%s\n0;JMP\n", fname);
 
     // set return tag
     j += sprintf (wline + j, "(%s)\n", TAG);
