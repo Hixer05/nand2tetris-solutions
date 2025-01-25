@@ -6,3 +6,5 @@
 41373 os.asm // pop temp
 40341 os.asm // push const
 39986 os.asm // eq 
+38896 os.asm // lt
+38151 os.asm // gt

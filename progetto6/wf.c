@@ -206,23 +206,37 @@ wlt (FILE *const writef)
     //  *(SP-2) < *(SP-1) as a<b
     //  a-b<0?T:F
     //  then we pop b and overwrite on a
-    static size_t timesCalled = 0;
-    char Ttag[10] = "L", Etag[10] = "l";      // 2^15 = 32k ; log(32k) ~ 5
-    sprintf (Ttag + 1, "%lu", timesCalled++); // if Less then jump to TAG
-    strcpy (Etag + 1, Ttag + 1);
-    char buffer[MAX_RLINE_LEN * 5];
-    size_t j = 0;
-    j += sprintf (buffer + j,
-                  "\n//compute lt\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n"); // compute a-b
-    j += sprintf (buffer + j, "//ifgoto gate\n@%s\nD;JLT\n", Ttag);          // if a-b<0 goto TTAG
-    j += sprintf (buffer + j, "//else\n@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n",
-                  Etag); // else a=0; goto ETAG
-    j += sprintf (buffer + j, "//then\n(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag);
-    j += sprintf (buffer + j, "@SP\nM=M-1\n"); // pop b
-    fputs (buffer, writef);
-#ifdef DEBUG
-    printf ("Info(wlt) j:%lu\t/%lu\n", j, sizeof (buffer));
-#endif
+    static int timesCalled = 0;
+    char wline[MAX_RLINE_LEN * 5];
+    #ifdef DEBUG
+    fputs ("\n//lt\n", writef);
+    #endif
+
+    if (timesCalled == 0)
+        {
+            sprintf (wline, "@$LT%d\nD=A\n@R15\nM=D\n", timesCalled);
+            fputs (wline, writef);
+            fputs ("($LT$)\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
+                   "@$LTT\nD;JLT\n"                                 // if a<b goto LTTrue
+                   "@SP\nA=M-1\nM=0\n"                              // else a=0
+                   "@$LTE\n0;JMP\n"                                 // and exit
+                   "($LTT)\n@SP\nA=M-1\nM=-1\n"                     // LTT
+                   "($LTE)\n"                                       // exit
+                   "@R15\nA=M\n0;JMP\n"                             // exit subr
+                   ,
+                   writef);
+            sprintf (wline, "($LT%d)\n", timesCalled);
+            fputs (wline, writef);
+        }
+    else
+        {
+            sprintf (wline,
+                     "@$LT%d\nD=A\n@R15\nM=D\n"
+                     "@$LT$\n0;JMP\n($LT%d)\n",
+                     timesCalled, timesCalled);
+            fputs (wline, writef);
+        }
+    timesCalled++;
 }
 
 void
@@ -268,23 +282,39 @@ wgt (FILE *const writef)
 {
     // NOTE literally the same as wlt
     // a-b>0?T:F
-    static size_t timesCalled = 0;
-    char Ttag[10] = "G", Etag[10] = "g";      // 2^15 = 32k ; log(32k) ~ 5
-    sprintf (Ttag + 1, "%lu", timesCalled++); // if Less then jump to TAG
-    strcpy (Etag + 1, Ttag + 1);
-    char buffer[MAX_RLINE_LEN * 5];
-    size_t j = 0;
-    j += sprintf (buffer + j,
-                  "\n//compute gt\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n"); // compute a-b
-    j += sprintf (buffer + j, "@%s\nD;JGT\n", Ttag);                         // if a-b>0 goto TTAG
-    j += sprintf (buffer + j, "@SP\nA=M-1\nA=A-1\nM=0\n@%s\n0;JMP\n", Etag); // else a=0; goto ETAG
-    j += sprintf (buffer + j, "(%s)\n@SP\nA=M-1\nA=A-1\nM=-1\n(%s)\n", Ttag, Etag); // then
-    j += sprintf (buffer + j, "@SP\nM=M-1\n");                                      // pop b
-    fputs (buffer, writef);
-#ifdef DEBUG
-    printf ("Info(wgt) j:%lu\t/%lu\n", j, sizeof (buffer));
-#endif
+    static int timesCalled = 0;
+    char wline[MAX_RLINE_LEN * 5];
+    #ifdef DEBUG
+    fputs ("\n//gt\n", writef);
+    #endif
+
+    if (timesCalled == 0)
+        {
+            sprintf (wline, "@$GT%d\nD=A\n@R15\nM=D\n", timesCalled);
+            fputs (wline, writef);
+            fputs ("($GT$)\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
+                   "@$GTT\nD;JGT\n"                                 // if eq goto GTTrue
+                   "@SP\nA=M-1\nM=0\n"                              // else a=0
+                   "@$GTE\n0;JMP\n"                                 // and exit
+                   "($GTT)\n@SP\nA=M-1\nM=-1\n"                     // GTT
+                   "($GTE)\n"                                       // exit
+                   "@R15\nA=M\n0;JMP\n"                             // exit subr
+                   ,
+                   writef);
+            sprintf (wline, "($GT%d)\n", timesCalled);
+            fputs (wline, writef);
+        }
+    else
+        {
+            sprintf (wline,
+                     "@$GT%d\nD=A\n@R15\nM=D\n"
+                     "@$GT$\n0;JMP\n($GT%d)\n",
+                     timesCalled, timesCalled);
+            fputs (wline, writef);
+        }
+    timesCalled++;
 }
+
 
 void
 wnot (FILE *const writef)
