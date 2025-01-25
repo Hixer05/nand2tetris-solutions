@@ -9,26 +9,30 @@
 void
 wneg (FILE *const writef)
 {
-    fputs ("\n//neg\n@SP\nA=M-1\nM=-M\n", writef);
+#ifdef DEBUG
+    fputs("\n//neg\n", writef);
+#endif
+    fputs ("@SP\nA=M-1\nM=-M\n", writef);
 }
 
 void
 wadd (FILE *const writef)
 {
-    // literally the same as wsub
-    fputs ("\n//add\n@SP\nA=M-1\nD=M\nA=A-1\nM=D+M\n" // a+b
-           "@SP\nM=M-1\n"                             // pop to a
-           ,
-           writef);
+#ifdef DEBUG
+    fputs("\n//add\n", writef);
+#endif
+    fputs ("@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D+M\n" // a+b
+           ,writef);
 }
 
 void
 wsub (FILE *const writef)
 {
-    fputs ("\n//sub\n@SP\nA=M-1\nA=A-1\nD=M\nA=A+1\nD=D-M\n" // a-b
-           "A=A-1\nM=D\n@SP\nM=M-1\n"                        // pop to a
-           ,
-           writef);
+#ifdef DEBUG
+    fputs("\n//sub\n", writef);
+#endif
+    fputs ("@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=M+D\n" // -b; a+(-b) (in loc)
+           ,writef);
 }
 
 int
@@ -319,19 +323,28 @@ wgt (FILE *const writef)
 void
 wnot (FILE *const writef)
 {
-    fputs ("\n//not\n@SP\nA=M-1\nM=!M\n", writef);
+#ifdef DEBUG
+    fputs("\n//not\n", writef);
+#endif
+    fputs ("@SP\nA=M-1\nM=!M\n", writef);
 }
 
 void
 wand (FILE *const writef)
 {
-    fputs ("\n//and\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D&M\nA=A-1\nM=D\n", writef);
+#ifdef DEBUG
+    fputs("\n//and\n", writef);
+#endif
+    fputs ("@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D&M\n", writef);
 }
 
 void
 wor (FILE *const writef)
 {
-    fputs ("\n//or\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D|M\nA=A-1\nM=D\n", writef);
+#ifdef DEBUG
+    fputs("\n//or\n", writef);
+#endif
+    fputs ("@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D|M\n", writef);
 }
 
 void
@@ -340,7 +353,10 @@ wlabel (char *const line, FILE *const writef)
     // NOTE `label L`
     char label[60];
     sscanf (line, " label %s ", label);
-    fputs ("\n//label\n(", writef);
+#ifdef DEBUG
+    fputs ("\n//label\n", writef);
+#endif
+    fputs("(", writef);
     fputs (label, writef);
     fputs (")\n", writef);
 }
@@ -352,7 +368,10 @@ wifgoto (char *const line, FILE *const writef)
     // or false(0)
     char label[60];
     sscanf (line, " if-goto %s ", label);
-    fputs ("\n//ifgoto\n@SP\nM=M-1\nA=M\nD=M\n@", writef); // if-goto also pops
+#ifdef DEBUG
+    fputs("\n//ifgoto\n", writef);
+#endif
+    fputs ("@SP\nM=M-1\nA=M\nD=M\n@", writef); // if-goto also pops
     fputs (label, writef);
     fputs ("\nD;JNE // J if true\n", writef);
 }
@@ -432,12 +451,14 @@ wfunctioncall (char *const line, FILE *const writef)
     // get fname
     sscanf (line, " call %s %s", fname, argc);
     // comment
+#ifdef DEBUG
     j += sprintf (wline + j, "\n//call %s %s\n", fname, argc);
+#endif
 
-#define PUSH_A "D=A\n@SP\nM=M+1\nA=M-1\nM=D\n"
+#define PUSH_D "@SP\nM=M+1\nA=M-1\nM=D\n"
 
     // push TAG
-    j += sprintf (wline + j, "@%s\n" PUSH_A, TAG);
+    j += sprintf (wline + j, "@%s\nD=A\n" PUSH_D, TAG);
 
     // constexpr from here
     if (!written1)
@@ -447,13 +468,13 @@ wfunctioncall (char *const line, FILE *const writef)
             // Subroutine entrypoint
             j += sprintf (wline + j, "($CALL$)\n");
             // push LCL
-            j += sprintf (wline + j, "@LCL\nA=M\n" PUSH_A);
+            j += sprintf (wline + j, "@LCL\nD=M\n" PUSH_D);
             // push ARG
-            j += sprintf (wline + j, "@ARG\nA=M\n" PUSH_A);
+            j += sprintf (wline + j, "@ARG\nD=M\n" PUSH_D);
             // THIS
-            j += sprintf (wline + j, "@THIS\nA=M\n" PUSH_A);
+            j += sprintf (wline + j, "@THIS\nD=M\n" PUSH_D);
             // push THAT
-            j += sprintf (wline + j, "@THAT\nA=M\n" PUSH_A);
+            j += sprintf (wline + j, "@THAT\nD=M\n" PUSH_D);
             // Subroutine exit
             j += sprintf (wline + j, "@R15\nA=M\n0;JMP\n");
             j += sprintf (wline + j, "($%s)\n", TAG); // subroutine return point
@@ -478,8 +499,4 @@ wfunctioncall (char *const line, FILE *const writef)
     j += sprintf (wline + j, "(%s)\n", TAG);
     fputs (wline, writef);
     timesCalled++;
-
-#ifdef DEBUG
-    printf ("Info(return) j:%lu\t/%lu\n", j, sizeof (wline));
-#endif
 }
