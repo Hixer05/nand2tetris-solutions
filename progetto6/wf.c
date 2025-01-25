@@ -252,40 +252,44 @@ wpush (char *const line, FILE *const writef)
     strcpy (wline, "");
 #endif
 
-    getsegment(seg);
+    getsegment (seg);
 
-    switch(seg[0]){
+    switch (seg[0])
+        {
         case '5':
         case '3':
-            sprintf(wline, "@%d\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", atoi(seg)+atoi(loc));
-            fputs(wline, writef);
+            sprintf (wline, "@%d\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", atoi (seg) + atoi (loc));
+            fputs (wline, writef);
             return 0;
 
         case '1':
             sprintf (wline, "@Xxx.%s\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", loc);
-            fputs(wline, writef);
+            fputs (wline, writef);
             return 0;
 
         case 'C':
-            if(atoi(loc)==0||atoi(loc)==1){
-                sprintf(wline, "@SP\nM=M+1\nA=M-1\nM=%d\n", atoi(loc));
-                fputs(wline, writef);
-            }else {
-                sprintf(wline, "@%d\nD=A\n@SP\nM=M+1\nA=M-1\nM=D\n", atoi(loc));
-                fputs(wline, writef);
-            }
+            if (atoi (loc) == 0 || atoi (loc) == 1)
+                {
+                    sprintf (wline, "@SP\nM=M+1\nA=M-1\nM=%d\n", atoi (loc));
+                    fputs (wline, writef);
+                }
+            else
+                {
+                    sprintf (wline, "@%d\nD=A\n@SP\nM=M+1\nA=M-1\nM=D\n", atoi (loc));
+                    fputs (wline, writef);
+                }
             return 0;
 
         case 'T':
         case 'A':
         case 'L':
-            sprintf(wline, "@%s\nD=A\n@%s\nA=M\nA=A+D\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n",loc, seg);
-            fputs(wline, writef);
+            sprintf (wline, "@%s\nD=A\n@%s\nA=M\nA=A+D\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", loc, seg);
+            fputs (wline, writef);
             return 0;
         default:
-            printf("Error push \n%s\n", line);
+            printf ("Error push \n%s\n", line);
             return -1;
-    }
+        }
     return -1;
 }
 
