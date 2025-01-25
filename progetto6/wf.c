@@ -241,83 +241,52 @@ int
 wpush (char *const line, FILE *const writef)
 {
     // NOTE line format: `push segment k`
-    char seg[20], k[10];
-    sscanf (line, " push %s %s", seg, k);
+    char seg[20], loc[10];
+    char wline[MAX_RLINE_LEN * 5] = "";
+    sscanf (line, " push %s %s", seg, loc);
 
     // comment
-    char wline[MAX_RLINE_LEN * 5] = "";
-    sprintf (wline, "\n//push %s %s\n", seg, k);
+#ifdef DEBUG
+    sprintf (wline, "\n//push %s %s\n", seg, loc);
     fputs (wline, writef);
     strcpy (wline, "");
-    size_t j = 0;
+#endif
 
-    switch (seg[0])
-        {
-        case 'a': // argument -> @ARG
-            strcpy (seg, "@ARG");
-            break;
-        case 'l': // local -> @LCL
-            strcpy (seg, "@LCL");
-            break;
-        case 's': // static -> 16
-            sprintf (wline, "@Xxx.%s\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", k);
-            fputs (wline, writef);
+    getsegment(seg);
+
+    switch(seg[0]){
+        case '5':
+        case '3':
+            sprintf(wline, "@%d\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", atoi(seg)+atoi(loc));
+            fputs(wline, writef);
             return 0;
-        case 't':
-            if (seg[1] == 'e') // temp
-                {
-                    sprintf (wline,
-                             "@%s\nD=A\n@5\nA=D+A\n"
-                             "D=M\n@SP\nM=M+1\nA=M-1\nM=D\n",
-                             k);
-                    fputs (wline, writef);
-                    return 0;
-                }
-            if (seg[2] == 'i')
-                { // this
-                    strcpy (seg, "@THIS");
-                    break;
-                }
-            else
-                { // that
-                    strcpy (seg, "@THAT");
-                    break;
-                }
-            printf ("Error: No temp, that, or this.\n%s\n", line);
-            return -1;
-        case 'p':
-            if (strstr (k, "0"))
-                {
-                    sprintf (wline, "@THIS\nD=M\n@SP\nM=M+1\nA=M\nM=D\n");
-                    fputs (wline, writef);
-                    return 0;
-                }
-            else if (strstr (k, "1"))
-                {
-                    sprintf (wline, "@THIS\nA=A+%s\nD=M\n@SP\nM=M+1\nA=M\nM=D\n", k);
-                    fputs (wline, writef);
-                }
-            else
-                {
-                    printf ("Error: Pointer access eithe 0 or 1\n%s\n", line);
-                    return -1;
-                }
-        case 'c': // constant -> special case
-            if (atoi (k) == 0)
-                {
-                    fputs ("@SP\nM=M+1\nA=M-1\nM=0\n", writef);
-                    return 0;
-                }
-            sprintf (wline, "@%s\nD=A\n@SP\nM=M+1\nA=M-1\nM=D\n", k);
-            fputs (wline, writef);
+
+        case '1':
+            sprintf (wline, "@Xxx.%s\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", loc);
+            fputs(wline, writef);
+            return 0;
+
+        case 'C':
+            if(atoi(loc)==0||atoi(loc)==1){
+                sprintf(wline, "@SP\nM=M+1\nA=M-1\nM=%d\n", atoi(loc));
+                fputs(wline, writef);
+            }else {
+                sprintf(wline, "@%d\nD=A\n@SP\nM=M+1\nA=M-1\nM=D\n", atoi(loc));
+                fputs(wline, writef);
+            }
+            return 0;
+
+        case 'T':
+        case 'A':
+        case 'L':
+            sprintf(wline, "@%s\nD=A\n@%s\nA=M\nA=A+D\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n",loc, seg);
+            fputs(wline, writef);
             return 0;
         default:
-            printf ("Error: default exit.\n");
+            printf("Error push \n%s\n", line);
             return -1;
-        }
-    j += sprintf (wline + j, "%s\nD=M\n@%s\nA=D+A\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", seg, k);
-    fputs (wline, writef);
-    return 0;
+    }
+    return -1;
 }
 
 void

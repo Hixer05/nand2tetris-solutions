@@ -10,3 +10,4 @@
 38151 os.asm // gt
 35897 os.asm // general opt
 34001 os.asm // move opt
+30081 os.asm // push opt
