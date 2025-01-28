@@ -15,3 +15,4 @@
 30160 os.asm // constant wmove
 29280 os.asm // Pop temp 0 subroutine + general opt
 29205 os.asm // better local var init
+28960 os.asm // ADD subroutine

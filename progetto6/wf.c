@@ -224,9 +224,26 @@ wadd (FILE *const writef)
 #ifdef DEBUG
   fputs ("\n//add\n", writef);
 #endif
-  fputs ("@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D+M\n" // a+b
-         ,
-         writef);
+  static bool iswritten = false;
+  static int timesCalled = 0;
+  if (!iswritten)
+    {
+      fputs ("@$ADD0\nD=A\n", writef);
+      fputs ("($ADD$)\n@R15\nM=D\n@SP\nM=M-1\nA=M\nD=M\nA=A-1\nM=D+M\n@R15\nA="
+             "M\n0;JMP\n" // a+b
+             "($ADD0)\n",
+             writef);
+      timesCalled++; // IMPORTANT!!!
+      iswritten = true;
+    }
+  else
+    {
+      char wline[100];
+      sprintf (wline, "@$ADD%d\nD=A\n@$ADD$\n0;JMP\n($ADD%d)\n", timesCalled,
+               timesCalled);
+      fputs (wline, writef);
+      timesCalled++;
+    }
 }
 
 void
@@ -267,18 +284,26 @@ wpop (const char *const line, FILE *const writef)
     case 't':            // pointer +0/+1
       if (seg[1] == 'e') // temp
         {
-          if(atoi(x)==0){
-            if(!poptemp0){
-              fputs("($POPSUBR)\n@R15\nD=M\n@SP\nM=M-1\nA=M\nD=M\n@5\nM=D\n", writef);
-              poptemp0 = true;
-              return 0;
-            }else{
-              sprintf(wline, "@POPS0%d\nD=A\n@$POPSUBR\n0;JMP\n(POPS0%d)\n", timesCalled, timesCalled);
-              fputs(wline, writef);
-              timesCalled++;
-              return 0;
+          if (atoi (x) == 0)
+            {
+              if (!poptemp0)
+                {
+                  fputs (
+                      "($POPSUBR)\n@R15\nD=M\n@SP\nM=M-1\nA=M\nD=M\n@5\nM=D\n",
+                      writef);
+                  poptemp0 = true;
+                  return 0;
+                }
+              else
+                {
+                  sprintf (wline,
+                           "@POPS0%d\nD=A\n@$POPSUBR\n0;JMP\n(POPS0%d)\n",
+                           timesCalled, timesCalled);
+                  fputs (wline, writef);
+                  timesCalled++;
+                  return 0;
+                }
             }
-          }
           sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@%d\nM=D\n", atoi (x) + 5);
           fputs (wline, writef);
           return 0;
@@ -298,14 +323,12 @@ wpop (const char *const line, FILE *const writef)
     case 'p':
       if (strstr (x, "1"))
         {
-          sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@THIS\nA=A+%s\nM=D\n", x);
-          fputs (wline, writef);
+          fputs ("@SP\nM=M-1\nA=M\nD=M\n@THAT\nM=D\n", writef);
           return 0;
         }
       else if (strstr (x, "0"))
         {
-          sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@THIS\nM=D\n");
-          fputs (wline, writef);
+          fputs ("@SP\nM=M-1\nA=M\nD=M\n@THIS\nM=D\n", writef);
           return 0;
         }
       printf ("Error: %s\n", line);
@@ -420,12 +443,12 @@ wlt (FILE *const writef)
       fputs (wline, writef);
       fputs ("($LT$)\n@R15\nM=D\n"
              "@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
-             "@$LTT\nD;JLT\n"             // if a<b goto LTTrue
-             "@SP\nA=M-1\nM=0\n"          // else a=0
-             "@$LTE\n0;JMP\n"             // and exit
-             "($LTT)\n@SP\nA=M-1\nM=-1\n" // LTT
-             "($LTE)\n"                   // exit
-             "@R15\nA=M\n0;JMP\n"         // exit subr
+             "@$LTT\nD;JLT\n"                         // if a<b goto LTTrue
+             "@SP\nA=M-1\nM=0\n"                      // else a=0
+             "@$LTE\n0;JMP\n"                         // and exit
+             "($LTT)\n@SP\nA=M-1\nM=-1\n"             // LTT
+             "($LTE)\n"                               // exit
+             "@R15\nA=M\n0;JMP\n"                     // exit subr
              ,
              writef);
       sprintf (wline, "($LT%d)\n", timesCalled);
@@ -459,12 +482,12 @@ weq (FILE *const writef)
       fputs (wline, writef);
       fputs ("($EQ$)\n@R15\nM=D\n"
              "@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
-             "@$EQT\nD;JEQ\n"             // if eq goto EQTrue
-             "@SP\nA=M-1\nM=0\n"          // else a=0
-             "@$EQE\n0;JMP\n"             // and exit
-             "($EQT)\n@SP\nA=M-1\nM=-1\n" // EQT
-             "($EQE)\n"                   // exit
-             "@R15\nA=M\n0;JMP\n"         // exit subr
+             "@$EQT\nD;JEQ\n"                         // if eq goto EQTrue
+             "@SP\nA=M-1\nM=0\n"                      // else a=0
+             "@$EQE\n0;JMP\n"                         // and exit
+             "($EQT)\n@SP\nA=M-1\nM=-1\n"             // EQT
+             "($EQE)\n"                               // exit
+             "@R15\nA=M\n0;JMP\n"                     // exit subr
              ,
              writef);
       sprintf (wline, "($EQ%d)\n", timesCalled);
@@ -498,12 +521,12 @@ wgt (FILE *const writef)
       fputs (wline, writef);
       fputs ("($GT$)\n@R15\nM=D\n"
              "@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
-             "@$GTT\nD;JGT\n"             // if eq goto GTTrue
-             "@SP\nA=M-1\nM=0\n"          // else a=0
-             "@$GTE\n0;JMP\n"             // and exit
-             "($GTT)\n@SP\nA=M-1\nM=-1\n" // GTT
-             "($GTE)\n"                   // exit
-             "@R15\nA=M\n0;JMP\n"         // exit subr
+             "@$GTT\nD;JGT\n"                         // if eq goto GTTrue
+             "@SP\nA=M-1\nM=0\n"                      // else a=0
+             "@$GTE\n0;JMP\n"                         // and exit
+             "($GTT)\n@SP\nA=M-1\nM=-1\n"             // GTT
+             "($GTE)\n"                               // exit
+             "@R15\nA=M\n0;JMP\n"                     // exit subr
              ,
              writef);
       sprintf (wline, "($GT%d)\n", timesCalled);
@@ -599,15 +622,18 @@ wfunctiondecl (const char *const line, FILE *const writef)
   // NOTE: correct LCL already set by call
   // We save M=M+1;..;@SP (2) for every local var at the cost of 5
   // Since many functions don't have many args we make a special case
-  if(locc<2){
-    for(int i = 0; i< locc; i++) // f: n*4; (1:4, 2:8, 3:12, 4:16)
-      fputs("@SP\nM=M+1\nA=M\nM=0\n", writef);
-  }else{
-    sprintf(wline, "@%d\nD=A\n@SP\nM=M+D\nA=M-D\n", locc);
-    fputs(wline, writef);
-    for (int i = 0; i < locc; i++) // f: n*2 + 5; (1:7, 2:9, 3:11, 4:13)
-      fputs("M=0\nA=A+1\n", writef);
-  }
+  if (locc < 2)
+    {
+      for (int i = 0; i < locc; i++) // f: n*4; (1:4, 2:8, 3:12, 4:16)
+        fputs ("@SP\nM=M+1\nA=M\nM=0\n", writef);
+    }
+  else
+    {
+      sprintf (wline, "@%d\nD=A\n@SP\nM=M+D\nA=M-D\n", locc);
+      fputs (wline, writef);
+      for (int i = 0; i < locc; i++) // f: n*2 + 5; (1:7, 2:9, 3:11, 4:13)
+        fputs ("M=0\nA=A+1\n", writef);
+    }
 
   return 0;
 }
