@@ -104,6 +104,15 @@ wmove (const char *const line, FILE *const writef)
     case 'C':
       if (isTAL)
         {
+          if (atoi (loc1) == 0 || atoi (loc1) == 1)
+            {
+              sprintf (wline,
+                       "@%s\nD=M\n@%s\nA=D+A\nM=%d\n" // R15=SEG2+LOC2
+                       ,
+                       seg2, loc2, atoi (loc1));
+              fputs (wline, writef);
+              return 0;
+            }
           sprintf (wline,
                    "@%s\nD=M\n@%s\nD=D+A\n@R15\nM=D\n" // R15=SEG2+LOC2
                    "@%d\nD=A\n@R15\nA=M\nM=D\n" // store SEG1+LOC1 to R15
@@ -114,12 +123,25 @@ wmove (const char *const line, FILE *const writef)
         }
       else if (isStatic)
         {
+          if (atoi (loc1) == 0 || atoi (loc1) == 1)
+            {
+              sprintf (wline, "@Xxx.%s\nM=%s\n", loc2, loc1);
+              fputs (wline, writef);
+              return 0;
+            }
           sprintf (wline, "@%s\nD=A\n@Xxx.%s\nM=D\n", loc1, loc2);
           fputs (wline, writef);
           return 0;
         }
       else
         {
+          if (atoi (loc1) == 0 || atoi (loc1) == 1)
+            {
+              sprintf (wline, "@%d\nM=%d\n", atoi (loc2) + atoi (seg2),
+                       atoi (loc1));
+              fputs (wline, writef);
+              return 0;
+            }
           sprintf (wline, "@%d\nD=A\n@%d\nM=D\n", atoi (loc1),
                    atoi (loc2) + atoi (seg2));
           fputs (wline, writef);
@@ -231,6 +253,9 @@ wpop (const char *const line, FILE *const writef)
   fputs (wline, writef);
   strcpy (wline, "");
 
+  static bool poptemp0 = false;
+  static int timesCalled = 0;
+
   switch (seg[0])
     {
     case 'a':
@@ -242,6 +267,18 @@ wpop (const char *const line, FILE *const writef)
     case 't':            // pointer +0/+1
       if (seg[1] == 'e') // temp
         {
+          if(atoi(x)==0){
+            if(!poptemp0){
+              fputs("($POPSUBR)\n@R15\nD=M\n@SP\nM=M-1\nA=M\nD=M\n@5\nM=D\n", writef);
+              poptemp0 = true;
+              return 0;
+            }else{
+              sprintf(wline, "@POPS0%d\nD=A\n@$POPSUBR\n0;JMP\n(POPS0%d)\n", timesCalled, timesCalled);
+              fputs(wline, writef);
+              timesCalled++;
+              return 0;
+            }
+          }
           sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@%d\nM=D\n", atoi (x) + 5);
           fputs (wline, writef);
           return 0;
@@ -379,9 +416,10 @@ wlt (FILE *const writef)
 
   if (timesCalled == 0)
     {
-      sprintf (wline, "@$LT%d\nD=A\n@R15\nM=D\n", timesCalled);
+      sprintf (wline, "@$LT%d\nD=A\n", timesCalled);
       fputs (wline, writef);
-      fputs ("($LT$)\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
+      fputs ("($LT$)\n@R15\nM=D\n"
+             "@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
              "@$LTT\nD;JLT\n"             // if a<b goto LTTrue
              "@SP\nA=M-1\nM=0\n"          // else a=0
              "@$LTE\n0;JMP\n"             // and exit
@@ -396,7 +434,7 @@ wlt (FILE *const writef)
   else
     {
       sprintf (wline,
-               "@$LT%d\nD=A\n@R15\nM=D\n"
+               "@$LT%d\nD=A\n"
                "@$LT$\n0;JMP\n($LT%d)\n",
                timesCalled, timesCalled);
       fputs (wline, writef);
@@ -417,9 +455,10 @@ weq (FILE *const writef)
 
   if (timesCalled == 0)
     {
-      sprintf (wline, "@$EQ%d\nD=A\n@R15\nM=D\n", timesCalled);
+      sprintf (wline, "@$EQ%d\nD=A\n", timesCalled);
       fputs (wline, writef);
-      fputs ("($EQ$)\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
+      fputs ("($EQ$)\n@R15\nM=D\n"
+             "@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
              "@$EQT\nD;JEQ\n"             // if eq goto EQTrue
              "@SP\nA=M-1\nM=0\n"          // else a=0
              "@$EQE\n0;JMP\n"             // and exit
@@ -434,7 +473,7 @@ weq (FILE *const writef)
   else
     {
       sprintf (wline,
-               "@$EQ%d\nD=A\n@R15\nM=D\n"
+               "@$EQ%d\nD=A\n"
                "@$EQ$\n0;JMP\n($EQ%d)\n",
                timesCalled, timesCalled);
       fputs (wline, writef);
@@ -455,9 +494,10 @@ wgt (FILE *const writef)
 
   if (timesCalled == 0)
     {
-      sprintf (wline, "@$GT%d\nD=A\n@R15\nM=D\n", timesCalled);
+      sprintf (wline, "@$GT%d\nD=A\n", timesCalled);
       fputs (wline, writef);
-      fputs ("($GT$)\n@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
+      fputs ("($GT$)\n@R15\nM=D\n"
+             "@SP\nM=M-1\nA=M-1\nD=M\nA=A+1\nD=D-M\n" // a-b
              "@$GTT\nD;JGT\n"             // if eq goto GTTrue
              "@SP\nA=M-1\nM=0\n"          // else a=0
              "@$GTE\n0;JMP\n"             // and exit
@@ -472,7 +512,7 @@ wgt (FILE *const writef)
   else
     {
       sprintf (wline,
-               "@$GT%d\nD=A\n@R15\nM=D\n"
+               "@$GT%d\nD=A\n"
                "@$GT$\n0;JMP\n($GT%d)\n",
                timesCalled, timesCalled);
       fputs (wline, writef);
@@ -558,13 +598,7 @@ wfunctiondecl (const char *const line, FILE *const writef)
 
   // NOTE: correct LCL already set by call
   for (int i = 0; i < locc; i++)
-    {
       wpush ("push constant 0\n", writef);
-      /* sprintf(wline, "pop local %d \n", locc); */
-      /* wpop (wline, writef); */
-      /* sprintf(wline, "move constant 0 local %d \n", i); */
-      /* wmove(wline,writef); */
-    }
 
   return 0;
 }
@@ -634,9 +668,9 @@ wfunctioncall (const char *const line, FILE *const writef)
   if (!written1)
     {
       // to exit
-      j += sprintf (wline + j, "@$%s\nD=A\n@R15\nM=D\n", TAG);
+      j += sprintf (wline + j, "@$%s\nD=A\n", TAG);
       // Subroutine entrypoint
-      j += sprintf (wline + j, "($CALL$)\n");
+      j += sprintf (wline + j, "($CALL$)\n@R15\nM=D\n");
       // push LCL
       j += sprintf (wline + j, "@LCL\nD=M\n" PUSH_D);
       // push ARG
@@ -653,7 +687,7 @@ wfunctioncall (const char *const line, FILE *const writef)
   else
     {
       // Mem return and jump to subroutine
-      j += sprintf (wline + j, "@$%s\nD=A\n@R15\nM=D\n@$CALL$\n0;JMP\n", TAG);
+      j += sprintf (wline + j, "@$%s\nD=A\n@$CALL$\n0;JMP\n", TAG);
       j += sprintf (wline + j, "($%s)\n", TAG); // subroutine return point
     }
 
