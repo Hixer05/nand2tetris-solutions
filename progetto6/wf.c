@@ -597,8 +597,17 @@ wfunctiondecl (const char *const line, FILE *const writef)
   fputs (wline, writef);
 
   // NOTE: correct LCL already set by call
-  for (int i = 0; i < locc; i++)
-      wpush ("push constant 0\n", writef);
+  // We save M=M+1;..;@SP (2) for every local var at the cost of 5
+  // Since many functions don't have many args we make a special case
+  if(locc<2){
+    for(int i = 0; i< locc; i++) // f: n*4; (1:4, 2:8, 3:12, 4:16)
+      fputs("@SP\nM=M+1\nA=M\nM=0\n", writef);
+  }else{
+    sprintf(wline, "@%d\nD=A\n@SP\nM=M+D\nA=M-D\n", locc);
+    fputs(wline, writef);
+    for (int i = 0; i < locc; i++) // f: n*2 + 5; (1:7, 2:9, 3:11, 4:13)
+      fputs("M=0\nA=A+1\n", writef);
+  }
 
   return 0;
 }
