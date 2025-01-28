@@ -26,7 +26,11 @@ parse (const char *const vmPath, const char *const asmPath)
     while (fgets (rline, MAX_RLINE_LEN, readf) != NULL)
         {
             char instr[20];
-            sscanf (rline, " %s ", instr);
+            if(sscanf (rline, " %s ", instr)!=1){
+                //emptyline
+                continue;
+            }
+
             switch (instr[0])
                 {
                 case '\0':

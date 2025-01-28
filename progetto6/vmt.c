@@ -1,23 +1,11 @@
 #ifndef _WIN32
 #include <dirent.h>
 #endif
+#include "vmt.h"
 #include "parse.h"
-#include "pretranslate.h"
+#include "metavm.h"
 #include "wf.h"
 #include <string.h>
-
-#ifdef _WIN32
-#define WIN_WARN()                                                                                 \
-    {                                                                                              \
-        printf ("VMtranslator file.vm\n Can translate single files only on Windows.\n");           \
-        return 1;                                                                                  \
-    }
-#endif
-#ifndef _WIN32
-#define WIN_WARN()                                                                                 \
-    {                                                                                              \
-    }
-#endif
 
 int
 main (int argc, char *argv[])
@@ -52,6 +40,16 @@ main (int argc, char *argv[])
                 }
             fputs ("@256\nD=A\n@SP\nM=D\n\n", writef);
             fclose (writef);
+
+            if(metaparse(vmPath, ".meta.vm")!=0){
+                printf("Error in metaparse %s\n", vmPath);
+                return -1;
+            }
+
+            for (int i = strlen (vmPath) - 1; i > 0; i--)
+                if (vmPath[i] == '.')
+                    strcpy (vmPath + i, ".meta.vm");
+
 
             exit_code = parse (vmPath, asmPath);
             return exit_code;
@@ -89,7 +87,7 @@ main (int argc, char *argv[])
                 {
                     if (dir->d_name[0] == '.')
                         continue;
-                    if (strstr (dir->d_name, ".pp.vm"))
+                    if (strstr (dir->d_name, ".meta.vm"))
                         continue;
                     if (strstr (dir->d_name, ".vm"))
                         {
@@ -99,18 +97,16 @@ main (int argc, char *argv[])
                             strcat (relName, dir->d_name);
                             strcpy (file_list[flsize], relName);
                             flsize++;
+                            if(metaparse(relName, ".meta.vm")){
+                                printf("Error in metaparse %s\n", relName);
+                                closedir(d);
+                                fclose(writef);
+                                return -1;
+                            }
                         }
                 }
 
             closedir (d);
-
-            int pre_ec = pushpop (file_list, flsize);
-            if (pre_ec != 0)
-                {
-                    printf ("Error in pretranslate\n");
-                    fclose (writef);
-                    return -1;
-                }
 
             d = opendir (vmPath);
             flsize = 0;
@@ -124,7 +120,7 @@ main (int argc, char *argv[])
                 {
                     if (dir->d_name[0] == '.')
                         continue;
-                    if (strstr (dir->d_name, ".pp.vm"))
+                    if (strstr (dir->d_name, ".meta.vm"))
                         {
                             char relName[256 * 2 + 1];
                             strcpy (relName, vmPath);

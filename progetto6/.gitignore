@@ -3,5 +3,5 @@ bin/*
 *.asm
 *.hack
 *.out
-*.pp.vm
+*.meta.vm
 VMtranslator

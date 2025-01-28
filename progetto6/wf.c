@@ -46,14 +46,21 @@ wmove (char *const line, FILE *const writef)
     char seg1[20], loc1[10], seg2[20], loc2[10];
     char wline[MAX_RLINE_LEN * 2];
     sscanf (line, " move %s %s %s %s ", seg1, loc1, seg2, loc2);
+
+#ifdef DEBUG
+    sprintf(wline, "\n//move %s %s %s %s\n", seg1, loc1, seg2, loc2);
+    fputs(wline, writef);
+#endif
+
+
     getsegment (seg1);
     getsegment (seg2);
     bool isTAL = false; // is T/A/L
+    bool isStatic = false;
     switch (seg2[0])
         {
         case '5': // TEMP
         case '3':
-        case '1':
             isTAL = false;
             break;
         case 'T':
@@ -61,12 +68,32 @@ wmove (char *const line, FILE *const writef)
         case 'L':
             isTAL = true;
             break;
+        case '1':
+            isStatic = true;
+            break;
         default:
             printf ("Error move seg2 %s \n%s\n", seg2, line);
             return -1;
         }
     switch (seg1[0])
         {
+        case '1':
+            if(isTAL){
+                sprintf(wline,
+                        "@%s\nD=M\n@%s\nD=D+A\n@R15\nM=D\n" // R15=SEG2+LOC2
+                        "@Xxx.%s\nD=M\n@R15\nA=M\nM=D\n"        // store SEG1+LOC1 to R15
+                         ,seg2, loc2, loc1 );
+                fputs(wline, writef);
+                return 0;
+            }else if (isStatic){
+                sprintf(wline, "@Xxx.%s\nD=M\n@Xxx.%s\nM=D\n", loc1, loc2);
+                fputs(wline, writef);
+                return 0;
+            }else{
+                sprintf(wline , "@Xxx.%s\nD=M\n@%d\nM=D\n", loc1, atoi(loc1)+atoi(seg1));
+                fputs(wline, writef);
+                return 0;
+            }
         case 'C':
             if (isTAL)
                 {
@@ -78,15 +105,20 @@ wmove (char *const line, FILE *const writef)
                     fputs (wline, writef);
                     return 0;
                 }
+            else if(isStatic)
+            {
+                sprintf(wline, "@%s\nD=A\n@Xxx.%s\nM=D\n", loc1, loc2);
+                fputs(wline, writef);
+                return 0;
+            }
             else
                 {
-                    sprintf (wline, "@%d\nD=A\n@%d\nM=D", atoi (seg1), atoi (loc2) + atoi (seg2));
+                    sprintf (wline, "@%d\nD=A\n@%d\nM=D\n", atoi(loc1), atoi (loc2) + atoi (seg2));
                     fputs (wline, writef);
                     return 0;
                 }
         case '5': // TEMP
         case '3':
-        case '1':
             if (isTAL)
                 {
                     sprintf (wline,
@@ -97,9 +129,14 @@ wmove (char *const line, FILE *const writef)
                     fputs (wline, writef);
                     return 0;
                 }
+            else if(isStatic){
+                sprintf(wline, "@%d\nD=M\n@Xxx.%s\nM=D\n", atoi(loc1)+atoi(seg1), loc2);
+               fputs(wline, writef);
+               return 0;
+            }
             else
                 {
-                    sprintf (wline, "@%d\nD=M\n@%d\nM=D", atoi (loc1) + atoi (seg1),
+                    sprintf (wline, "@%d\nD=M\n@%d\nM=D\n", atoi (loc1) + atoi (seg1),
                              atoi (loc2) + atoi (seg2));
                     fputs (wline, writef);
                     return 0;
@@ -118,9 +155,15 @@ wmove (char *const line, FILE *const writef)
                     fputs (wline, writef);
                     return 0;
                 }
+            else if(isStatic){
+                sprintf (wline, "@%s\nD=M\n@%s\nA=D+A\nD=M\n@Xxx.%s\nM=D\n", seg1, loc1,
+                             loc2);
+                fputs(wline, writef);
+                return 0;
+            }
             else
                 {
-                    sprintf (wline, "@%s\nD=M\n@%s\nA=D+A\nD=M\n@%d\nM=D", seg1, loc1,
+                    sprintf (wline, "@%s\nD=M\n@%s\nA=D+A\nD=M\n@%d\nM=D\n", seg1, loc1,
                              atoi (loc2) + atoi (seg2));
                     fputs (wline, writef);
                     return 0;
@@ -159,7 +202,7 @@ wsub (FILE *const writef)
 #ifdef DEBUG
     fputs ("\n//sub\n", writef);
 #endif
-    fputs ("@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=M+D\n" // -b; a+(-b) (in loc)
+    fputs ("@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=D+M\n" // -b; a+(-b) (in loc)
            ,
            writef);
 }
@@ -207,13 +250,13 @@ wpop (char *const line, FILE *const writef)
         case 'p':
             if (strstr (x, "1"))
                 {
-                    sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@THIS\nA=A+%s\nM=D", x);
+                    sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@THIS\nA=A+%s\nM=D\n", x);
                     fputs (wline, writef);
                     return 0;
                 }
             else if (strstr (x, "0"))
                 {
-                    sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@THIS\nM=D");
+                    sprintf (wline, "@SP\nM=M-1\nA=M\nD=M\n@THIS\nM=D\n");
                     fputs (wline, writef);
                     return 0;
                 }
@@ -283,7 +326,7 @@ wpush (char *const line, FILE *const writef)
         case 'T':
         case 'A':
         case 'L':
-            sprintf (wline, "@%s\nD=A\n@%s\nA=M\nA=A+D\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", loc, seg);
+            sprintf (wline, "@%s\nD=A\n@%s\nA=M\nA=D+A\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", loc, seg);
             fputs (wline, writef);
             return 0;
         default:
@@ -498,8 +541,13 @@ wfunctiondecl (char *const line, FILE *const writef)
     fputs (wline, writef);
 
     // NOTE: correct LCL already set by call
-    for (int i = 0; i < locc; i++)
+    for (int i = 0; i < locc; i++){
         wpush ("push constant 0\n", writef);
+        /* sprintf(wline, "pop local %d \n", locc); */
+        /* wpop (wline, writef); */
+        /* sprintf(wline, "move constant 0 local %d \n", i); */
+        /* wmove(wline,writef); */
+    }
 
     return 0;
 }
@@ -584,7 +632,7 @@ wfunctioncall (char *const line, FILE *const writef)
     else
         {
             // Mem return and jump to subroutine
-            j += sprintf (wline + j, "@$%s\nD=A\n@R15\nM=D\n($CALL$)\n0;JMP\n", TAG);
+            j += sprintf (wline + j, "@$%s\nD=A\n@R15\nM=D\n@$CALL$\n0;JMP\n", TAG);
             j += sprintf (wline + j, "($%s)\n", TAG); // subroutine return point
         }
 
