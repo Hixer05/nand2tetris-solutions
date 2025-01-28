@@ -17,3 +17,4 @@
 29205 os.asm // better local var init
 28960 os.asm // ADD subroutine
 27947 os.asm // Sum OPT
+27897 os.asm // sub subroutine OPT

@@ -316,12 +316,22 @@ wadd (FILE *const writef)
 void
 wsub (FILE *const writef)
 {
+  static bool written = false;
+  static int timesCalled = 0;
 #ifdef DEBUG
   fputs ("\n//sub\n", writef);
 #endif
-  fputs ("@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=D+M\n" // -b; a+(-b) (in loc)
-         ,
-         writef);
+
+  if(!written)
+  {
+    fprintf(writef, "@$SUB%d\nD=A\n($SUB$)\n@R15\nM=D\n"
+            "@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=D+M\n"
+            "@R15\nA=M\n0;JMP\n($SUB%d)\n", timesCalled, timesCalled);
+    written = true;
+  }else{
+    fprintf(writef, "@$SUB%d\nD=A\n@$SUB$\n0;JMP\n($SUB%d)\n", timesCalled, timesCalled);
+  }
+  timesCalled++;
 }
 
 int
