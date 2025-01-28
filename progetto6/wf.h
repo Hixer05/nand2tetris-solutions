@@ -21,4 +21,5 @@ void wnot (FILE *const writef);
 void wand (FILE *const writef);
 void wor (FILE *const writef);
 int wmove (const char *const line, FILE *const writef);
+int wsum(const char*const line, FILE*const writef);
 #endif // WF_H_

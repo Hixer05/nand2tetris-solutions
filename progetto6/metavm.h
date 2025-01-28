@@ -3,4 +3,6 @@
 
 int metaparse (const char *const vmPath, const char *const extension);
 int pushpop (const char *const vmPath, const char *const metaPath);
+int add(const char *const vmPath, const char *const metaPath);
+
 #endif

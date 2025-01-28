@@ -4,4 +4,5 @@ bin/*
 *.hack
 *.out
 *.meta.vm
+*.tmp
 VMtranslator

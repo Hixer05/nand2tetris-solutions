@@ -10,42 +10,46 @@ int
 metaparse (const char *const vmPath, const char *const extension)
 {
   char metaPath[256 * 2];
+  char tmpPath[256 * 2];
   strcpy (metaPath, vmPath);
+  strcpy (tmpPath, vmPath);
   for (int i = strlen (metaPath); i > 0; i--)
     {
       if (metaPath[i] == '.')
         {
           strcpy (metaPath + i, extension);
+          strcpy (tmpPath + i, ".tmp");
           break;
         }
     }
 
+  if (pushpop (vmPath, tmpPath))
+    return -1;
   // copy
-  FILE *const vmf = fopen (vmPath, "r");
-  FILE *const mef = fopen (metaPath, "w");
-  if (!vmf)
-    {
-      printf ("Error reading %s\n", vmPath);
-      return -1;
-    }
-  if (!mef)
-    {
-      printf ("Error reading %s\n", metaPath);
-      fclose (vmf);
-      return -1;
-    }
-  /* printf ("Copying %s to %s\n", vmPath, metaPath); */
-  /* char line[80]; */
-  /* while (fgets (line, 80, vmf)) */
-  /*     { */
-  /*         fputs (line, mef); */
-  /*     } */
+  /* FILE *const metaf = fopen (metaPath, "r"); */
+  /* FILE *const tempf = fopen(tmpPath, "w"); */
+  /* if (!tempf) */
+  /*   { */
+  /*     printf ("Error writing %s\n", tmpPath); */
+  /*     return -1; */
+  /*   } */
+  /* if (!metaf) */
+  /*   { */
+  /*     printf ("Error reading %s\n", metaPath); */
+  /*     fclose (tempf); */
+  /*     return -1; */
+  /*   } */
 
-  /* printf ("Pushpop on %s -> %s\n",vmPath, metaPath); */
-  int exit_code = 0;
-  exit_code += pushpop (vmPath, metaPath);
+  /* char line[100]; */
+  /* while(fgets(line, 100, metaf)) */
+  /*   fputs(line, tempf); */
+  /* fclose(tempf); */
+  /* fclose(metaf); */
 
-  return exit_code;
+  if (add (tmpPath, metaPath))
+    return -1;
+
+  return 0;
 }
 
 // if this sequence
@@ -138,6 +142,113 @@ pushpop (const char *const vmPath, const char *const metaPath)
     {
       fputs (output[i], writef);
     }
+
+  fclose (writef);
+  free (string);
+  return 0;
+}
+
+int
+add (const char *const vmPath, const char *const metaPath)
+{
+
+  FILE *readf = fopen (vmPath, "r");
+  if (readf == NULL)
+    {
+      printf ("Metavm error can't open: %s\n", vmPath);
+      return -1;
+    }
+  FILE *writef = fopen (metaPath, "w");
+  if (writef == NULL)
+    {
+      printf ("Metavm error can't open: %s\n", metaPath);
+      fclose (readf);
+      return -1;
+    }
+
+  // READ FILE INTO MEMORY
+  fseek (readf, 0, SEEK_END);
+  long fsize = ftell (readf);
+  fseek (readf, 0, SEEK_SET); /* same as rewind(readf); */
+
+  char *string = malloc (fsize + 1);
+  fread (string, fsize, 1, readf);
+  fclose (readf);
+
+  long lines = 0;
+  for (int i = 0; i < fsize; i++)
+    {
+      if (string[i] == '\n')
+        lines++;
+    }
+
+  /* char output[lines][80]; */
+  /* int line = 0; */
+  int check_line = 0;
+  char *cur = strtok (string, "\n");
+  char prev[2][80] = { "" };
+  size_t pushcount = 0;
+  while (cur != NULL)
+    {
+      if (check_line >= lines)
+        break;
+      char tmp[100];
+      if (sscanf (cur, " //%s ", tmp) == 1)
+        {
+          cur = strtok (NULL, "\n");
+          continue;
+        }
+
+      if (strstr (cur, "add") && pushcount == 2)
+        {
+          char wline[100];
+          char data[4][20] = { 0 };
+          sscanf (prev[0], "push %s %s ", data[0], data[1]);
+          sscanf (prev[1], "push %s %s ", data[2], data[3]);
+          /* printf (">%s\t\t\t>%s\n", prev[0], prev[1]); */
+          /* printf (">>%s\t\t\t>%s\n", data[0], data[1]); */
+          /* printf (">>%s\t\t\t>%s\n", data[2], data[3]); */
+          /* printf ("---\n"); */
+          sprintf (wline, "sum %s %s %s %s \n", data[0], data[1], data[2],
+                   data[3]);
+          fputs (wline, writef);
+          pushcount = 0;
+        }
+      else if (strstr (cur, "push"))
+        {
+          if (pushcount < 2)
+            {
+              strcpy (prev[pushcount], cur);
+              pushcount++;
+            }
+          else
+            {
+              fprintf(writef, "%s\n", prev[0]);
+              strcpy (prev[0], prev[1]);
+              strcpy (prev[1], cur);
+            }
+        }
+      else
+        {
+          for (int i = 0; i < pushcount; i++)
+            fprintf (writef, "%s\n", prev[i]);
+          pushcount = 0;
+          fputs (cur, writef);
+          fputc ('\n', writef);
+        }
+
+      check_line++;
+      cur = strtok (NULL, "\n");
+    }
+  for (int i = 0; i < pushcount; i++)
+    {
+      fprintf (writef, "%s\n", prev[i]);
+    }
+  pushcount = 0;
+  /* for (int i = 0; i < line; i++) */
+  /*   { */
+  /*     fputs (output[i], writef); */
+  /*   } */
 
   fclose (writef);
   free (string);

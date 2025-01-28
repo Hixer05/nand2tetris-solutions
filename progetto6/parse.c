@@ -63,7 +63,14 @@ parse (const char *const vmPath, const char *const asmPath)
           wfunctionreturn (writef);
           break;
         case 's':
-          wsub (writef);
+          if (instr[2] == 'b')
+            wsub (writef);
+          else if (wsum (rline, writef))
+            {
+              printf ("Sum error\n%s\n", rline);
+              exit_code += 1;
+              goto exit;
+            }
           break;
         case 'n':
           if (instr[1] == 'e')

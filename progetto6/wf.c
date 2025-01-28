@@ -71,6 +71,8 @@ wmove (const char *const line, FILE *const writef)
     case '1':
       isStatic = true;
       break;
+    case 'C':
+      break;
     default:
       printf ("Error move seg2 %s \n%s\n", seg2, line);
       return -1;
@@ -96,10 +98,11 @@ wmove (const char *const line, FILE *const writef)
         }
       else
         {
-          sprintf (wline, "@Xxx.%s\nD=M\n@%d\nM=D\n", loc1,
-                   atoi (loc1) + atoi (seg1));
-          fputs (wline, writef);
-          return 0;
+          /* sprintf (wline, "@Xxx.%s\nD=M\n@%d\nM=D\n", loc1, */
+          /*          atoi (loc1) + atoi (seg1)); */
+          /* fputs (wline, writef); */
+          printf ("Tried to move to const\n");
+          return -1;
         }
     case 'C':
       if (isTAL)
@@ -207,6 +210,70 @@ wmove (const char *const line, FILE *const writef)
       printf ("ERROR move seg1 %s \n%s\n", seg1, line);
       return -1;
     }
+}
+
+int
+wsum (const char *const line, FILE *const writef)
+{
+  #ifdef DEBUG
+  fprintf(writef, "//%s", line);
+  #endif
+  char seg[2][20], loc[2][20];
+  sscanf (line, " sum %s %s %s %s \n", seg[0], loc[0], seg[1], loc[1]);
+  getsegment (seg[0]);
+  getsegment (seg[1]);
+  char wline[100];
+  switch (seg[0][0])
+    {
+    case '1':
+      sprintf (wline, "@Xxx.%s\nD=M\n", loc[0]);
+      break;
+    case 'C':
+      sprintf (wline, "@%s\nD=A\n", loc[0]);
+      break;
+    case '5':
+    case '3':
+      sprintf (wline, "@%d\nA=D+A\nD=M\n", atoi (loc[0]) + atoi (seg[0]));
+      break;
+    case 'T':
+    case 'A':
+    case 'L':
+      sprintf (wline, "@%s\nD=A\n@%s\nA=M+D\nD=M\n", loc[0], seg[0]);
+      break;
+    case 'E':
+    default:
+      return -1;
+    }
+  fputs (wline, writef);
+  switch (seg[1][0])
+    {
+    case 'C':
+      sprintf (wline, "@%s\nD=D+A\n@SP\nM=M+1\nA=M-1\nM=D\n", loc[1]);
+      break;
+    case '5':
+    case '3':
+      sprintf (wline, "@%d\nD=M+D\n@SP\nM=M+1\nA=M-1\nM=D\n",
+               atoi (seg[1]) + atoi (loc[1]));
+      break;
+    case '1':
+      sprintf (wline, "@Xxx.%s\nD=M+D\n@SP\nM=M+1\nA=M-1\nM=D\n", loc[1]);
+      break;
+    case 'T':
+    case 'A':
+    case 'L':
+      sprintf (wline,
+               "@R15\nM=D\n@%s\nD=A\n@%s\nA=M+D\nD=M\n@R15\nD=D+M\n@SP\nM=M+"
+               "1\nA=M-1\nM=D\n",
+               loc[1], seg[1]);
+      break;
+    case 'E':
+    default:
+      return -1;
+    }
+
+  fputs (wline, writef);
+
+  return 0;
 }
 
 void
