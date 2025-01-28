@@ -215,9 +215,9 @@ wmove (const char *const line, FILE *const writef)
 int
 wsum (const char *const line, FILE *const writef)
 {
-  #ifdef DEBUG
-  fprintf(writef, "//%s", line);
-  #endif
+#ifdef DEBUG
+  fprintf (writef, "//%s", line);
+#endif
   char seg[2][20], loc[2][20];
   sscanf (line, " sum %s %s %s %s \n", seg[0], loc[0], seg[1], loc[1]);
   getsegment (seg[0]);
@@ -322,15 +322,20 @@ wsub (FILE *const writef)
   fputs ("\n//sub\n", writef);
 #endif
 
-  if(!written)
-  {
-    fprintf(writef, "@$SUB%d\nD=A\n($SUB$)\n@R15\nM=D\n"
-            "@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=D+M\n"
-            "@R15\nA=M\n0;JMP\n($SUB%d)\n", timesCalled, timesCalled);
-    written = true;
-  }else{
-    fprintf(writef, "@$SUB%d\nD=A\n@$SUB$\n0;JMP\n($SUB%d)\n", timesCalled, timesCalled);
-  }
+  if (!written)
+    {
+      fprintf (writef,
+               "@$SUB%d\nD=A\n($SUB$)\n@R15\nM=D\n"
+               "@SP\nM=M-1\nA=M\nD=-M\nA=A-1\nM=D+M\n"
+               "@R15\nA=M\n0;JMP\n($SUB%d)\n",
+               timesCalled, timesCalled);
+      written = true;
+    }
+  else
+    {
+      fprintf (writef, "@$SUB%d\nD=A\n@$SUB$\n0;JMP\n($SUB%d)\n", timesCalled,
+               timesCalled);
+    }
   timesCalled++;
 }
 
@@ -365,9 +370,12 @@ wpop (const char *const line, FILE *const writef)
             {
               if (!poptemp0)
                 {
-                  fputs (
-                      "($POPSUBR)\n@R15\nD=M\n@SP\nM=M-1\nA=M\nD=M\n@5\nM=D\n",
-                      writef);
+                  fprintf (
+                      writef,
+                      "@POPS0%d\nD=A\n($POPSUBR)\n@R15\nD=M\n@SP\nM=M-1\n"
+                      "A=M\nD=M\n@5\nM=D\n@R15\nA=M\n0;JMP\n(POPS0%d)\n",
+                      timesCalled, timesCalled);
+                  timesCalled++;
                   poptemp0 = true;
                   return 0;
                 }
@@ -474,9 +482,14 @@ wpush (const char *const line, FILE *const writef)
         }
       return 0;
 
+    case 'L':
+      if (atoi (loc) == 0)
+        {
+          fprintf (writef, "@%s\nA=M\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", seg);
+          return 0;
+        }
     case 'T':
     case 'A':
-    case 'L':
       sprintf (wline,
                "@%s\nD=A\n@%s\nA=M\nA=D+A\nD=M\n@SP\nM=M+1\nA=M-1\nM=D\n", loc,
                seg);
