@@ -238,7 +238,7 @@ wsum (const char *const line, FILE *const writef)
     case 'T':
     case 'A':
     case 'L':
-      sprintf (wline, "@%s\nD=A\n@%s\nA=M+D\nD=M\n", loc[0], seg[0]);
+      sprintf (wline, "@%s\nD=A\n@%s\nA=D+M\nD=M\n", loc[0], seg[0]);
       break;
     case 'E':
     default:
@@ -252,17 +252,17 @@ wsum (const char *const line, FILE *const writef)
       break;
     case '5':
     case '3':
-      sprintf (wline, "@%d\nD=M+D\n@SP\nM=M+1\nA=M-1\nM=D\n",
+      sprintf (wline, "@%d\nD=D+M\n@SP\nM=M+1\nA=M-1\nM=D\n",
                atoi (seg[1]) + atoi (loc[1]));
       break;
     case '1':
-      sprintf (wline, "@Xxx.%s\nD=M+D\n@SP\nM=M+1\nA=M-1\nM=D\n", loc[1]);
+      sprintf (wline, "@Xxx.%s\nD=D+M\n@SP\nM=M+1\nA=M-1\nM=D\n", loc[1]);
       break;
     case 'T':
     case 'A':
     case 'L':
       sprintf (wline,
-               "@R15\nM=D\n@%s\nD=A\n@%s\nA=M+D\nD=M\n@R15\nD=D+M\n@SP\nM=M+"
+               "@R15\nM=D\n@%s\nD=A\n@%s\nA=D+M\nD=M\n@R15\nD=D+M\n@SP\nM=M+"
                "1\nA=M-1\nM=D\n",
                loc[1], seg[1]);
       break;
@@ -719,7 +719,7 @@ wfunctiondecl (const char *const line, FILE *const writef)
     }
   else
     {
-      sprintf (wline, "@%d\nD=A\n@SP\nM=M+D\nA=M-D\n", locc);
+      sprintf (wline, "@%d\nD=A\n@SP\nM=D+M\nA=M-D\n", locc);
       fputs (wline, writef);
       for (int i = 0; i < locc; i++) // f: n*2 + 5; (1:7, 2:9, 3:11, 4:13)
         fputs ("M=0\nA=A+1\n", writef);
